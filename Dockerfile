@@ -9,6 +9,10 @@ RUN npx prisma generate
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
+# OpenSSL + libc6-compat are needed by Prisma's query/schema engines at runtime.
+# This stage is also used as the db-init container, so it must be able to run
+# `prisma db push` and `tsx prisma/seed.ts`.
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
