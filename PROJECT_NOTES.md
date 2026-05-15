@@ -306,13 +306,129 @@ Reference: how top Indian e-commerce sites (Meesho, Nykaa style) are structured.
 
 ---
 
-## Questions to Revisit
+## Decisions Locked In
 
-- Should product management be done via admin panel only, or also allow CSV bulk import?
-- Will sarees be one-of-a-kind (stock = 1) or multi-stock items?
-- Do we need multi-vendor support in the future (other sellers)?
-- Should the stitching booking sync with a Google Calendar?
-- Do we want a mobile app eventually (React Native shares the same API)?
+| Question | Decision |
+|----------|----------|
+| Product management via admin panel only, or CSV bulk import too? | **Both** — admin panel + CSV bulk import |
+| Sarees: one-of-a-kind (stock=1) or multi-stock? | **Multi-stock** (e.g. same saree available in 10 pieces) |
+| Multi-vendor support (other sellers)? | **No** — single store only |
+| Stitching booking sync with Google Calendar? | **Yes** — integrate Google Calendar API for tailor appointments |
+| Mobile app (React Native)? | **Future** — only after website is fully live and stable |
+| Product filtering style? | **Meesho/Nykaa-style** — price range, category, fabric, color, occasion, discount |
+
+---
+
+## Product Filters — Nykaa/Meesho Style Plan
+
+Reference: how top Indian fashion sites handle filtering.
+
+### Filter Panel (Left sidebar on desktop, bottom sheet on mobile)
+
+```
+FILTERS
+────────────────────
+Price Range
+  ○ Under ₹500
+  ○ ₹500 – ₹1,000
+  ○ ₹1,000 – ₹2,500
+  ○ ₹2,500 – ₹5,000
+  ○ Above ₹5,000
+  [Min]──────[Max] slider
+
+Category
+  ☐ Silk Sarees
+  ☐ Cotton Sarees
+  ☐ Printed Sarees
+  ☐ Embroidered Sarees
+  ☐ Party Wear
+  ☐ Casual Wear
+  ☐ Bridal Wear
+
+Fabric
+  ☐ Pure Silk
+  ☐ Kanjivaram
+  ☐ Banarasi
+  ☐ Cotton
+  ☐ Georgette
+  ☐ Chiffon
+  ☐ Linen
+
+Occasion
+  ☐ Wedding
+  ☐ Festival
+  ☐ Casual
+  ☐ Office
+  ☐ Party
+
+Color
+  ● Red  ● Blue  ● Green
+  ● Gold ● Pink  ● White
+  ● Navy ● Black ● Purple
+
+Discount
+  ☐ 10% and above
+  ☐ 20% and above
+  ☐ 30% and above
+
+Availability
+  ☐ In Stock only
+```
+
+### Sort Options (top bar)
+- Relevance (default)
+- Newest First
+- Price: Low to High
+- Price: High to Low
+- Most Popular
+- Highest Rated
+- Biggest Discount
+
+### Implementation Plan
+
+**Database changes needed (Prisma schema):**
+```prisma
+model Product {
+  fabric     String?        // "Pure Silk", "Cotton", etc.
+  occasion   String[]       // ["Wedding", "Festival"]
+  colors     String[]       // ["Red", "Gold"]
+  discount   Int?           // percentage off (0–100)
+}
+```
+
+**API changes needed:**
+- `/api/products?category=silk&minPrice=500&maxPrice=2500&fabric=Cotton&sort=price_asc&page=1`
+- All filters passed as query params, Prisma `where` clause built dynamically
+
+**Frontend components to build:**
+- `FilterPanel` — collapsible sidebar (desktop) / bottom drawer (mobile)
+- `ActiveFilters` — chips showing applied filters with × to remove each
+- `SortDropdown` — top right of product grid
+- `ProductGrid` — 4 columns desktop, 2 columns mobile, 24 items per page
+
+**URL state:** filters reflected in URL so users can share/bookmark filtered results
+- Example: `/products?category=silk&color=red&maxPrice=5000`
+
+---
+
+## Google Calendar Integration — Stitching Bookings
+
+When a customer books a stitching appointment:
+1. Customer fills form (name, phone, preferred date/time, measurements)
+2. Booking saved to `StitchingBooking` table in DB
+3. Google Calendar event created automatically via Google Calendar API
+4. Customer gets email confirmation with calendar invite (.ics file)
+5. Tailor/admin sees it in their Google Calendar
+
+**Setup steps (when ready):**
+1. Google Cloud Console → Enable Calendar API
+2. Create a Service Account → download JSON key
+3. Share the shop's Google Calendar with the service account email
+4. Add to `.env`:
+```env
+GOOGLE_CALENDAR_ID=your-calendar-id@group.calendar.google.com
+GOOGLE_SERVICE_ACCOUNT_KEY=<base64 encoded JSON key>
+```
 
 ---
 
