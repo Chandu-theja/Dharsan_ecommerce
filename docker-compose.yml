@@ -54,6 +54,8 @@ services:
       - dharsan-net
 
 volumes:
+  # Named volume — survives `docker compose down`, `restart`, and container removal.
+  # Only deleted by `docker compose down -v` or `docker volume rm` — NEVER run those in production.
   postgres_data:
     driver: local
 
