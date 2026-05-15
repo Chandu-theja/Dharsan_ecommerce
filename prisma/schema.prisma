@@ -1,0 +1,613 @@
+// prisma/schema.prisma
+// Dharsan Dresses - Production Database Schema
+// PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String?
+  password      String?
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses  Address[]
+  orders     Order[]
+  cart       Cart?
+  wishlist   Wishlist?
+  reviews    Review[]
+  accounts   Account[]
+  sessions   Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      AdminRole @default(MANAGER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum AdminRole {
+  SUPERADMIN
+  MANAGER
+  INVENTORY
+}
+
+// ─── CATEGORIES ──────────────────────────────────────────────────────────────
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String
+  nameTE      String?      // Telugu
+  nameHI      String?      // Hindi
+  slug        String       @unique
+  description String?
+  image       String?
+  gender      Gender       @default(UNISEX)
+  displayOrder Int         @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  subcategories SubCategory[]
+  products      Product[]
+
+  @@map("categories")
+}
+
+model SubCategory {
+  id          String   @id @default(cuid())
+  name        String
+  nameTE      String?
+  nameHI      String?
+  slug        String   @unique
+  description String?
+  image       String?
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category Category  @relation(fields: [categoryId], references: [id])
+  products Product[]
+
+  @@map("subcategories")
+}
+
+enum Gender {
+  MEN
+  WOMEN
+  KIDS
+  UNISEX
+}
+
+// ─── PRODUCTS ────────────────────────────────────────────────────────────────
+
+model Product {
+  id              String        @id @default(cuid())
+  name            String
+  nameTE          String?
+  nameHI          String?
+  slug            String        @unique
+  description     String        @db.Text
+  descriptionTE   String?       @db.Text
+  descriptionHI   String?       @db.Text
+  fabric          String?       // e.g. Silk, Cotton, Polyester
+  careInstructions String?
+  origin          String?       // e.g. "Handloom - Kanchipuram"
+
+  price           Float
+  comparePrice    Float?        // Original price for sale display
+  costPrice       Float?        // For profit tracking
+
+  gender          Gender
+  categoryId      String
+  subcategoryId   String?
+
+  images          ProductImage[]
+  variants        ProductVariant[]
+  reviews         Review[]
+  orderItems      OrderItem[]
+  cartItems       CartItem[]
+  wishlistItems   WishlistItem[]
+
+  isFeatured      Boolean       @default(false)
+  isNewArrival    Boolean       @default(false)
+  isOnSale        Boolean       @default(false)
+  isFabricByMeter Boolean       @default(false) // Sold per meter
+  isPublished     Boolean       @default(true)
+
+  seoTitle        String?
+  seoDescription  String?
+  tags            String[]      @default([])
+
+  totalSold       Int           @default(0)
+  averageRating   Float         @default(0)
+  reviewCount     Int           @default(0)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category    Category     @relation(fields: [categoryId], references: [id])
+  subcategory SubCategory? @relation(fields: [subcategoryId], references: [id])
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  url       String
+  altText   String?
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  size      String? // S, M, L, XL, 2XL, 3XL, 4XL, 5XL, 6XL (women), or measurements
+  color     String?
+  colorHex  String?
+  sku       String? @unique
+  stock     Int     @default(0)
+  price     Float?  // Override product price if different
+  isActive  Boolean @default(true)
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("product_variants")
+}
+
+// ─── CART ─────────────────────────────────────────────────────────────────────
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?    @unique
+  sessionId String?    @unique // For guest carts
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String @id @default(cuid())
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int    @default(1)
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@unique([cartId, productId, variantId])
+  @@map("cart_items")
+}
+
+// ─── WISHLIST ─────────────────────────────────────────────────────────────────
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  userId    String         @unique
+  createdAt DateTime       @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WishlistItem[]
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  productId  String
+  addedAt    DateTime @default(now())
+
+  wishlist Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@unique([wishlistId, productId])
+  @@map("wishlist_items")
+}
+
+// ─── ADDRESSES ────────────────────────────────────────────────────────────────
+
+model Address {
+  id         String      @id @default(cuid())
+  userId     String
+  fullName   String
+  phone      String
+  addressLine1 String
+  addressLine2 String?
+  city       String
+  state      String
+  pincode    String
+  country    String      @default("India")
+  isDefault  Boolean     @default(false)
+  label      AddressLabel @default(HOME)
+  createdAt  DateTime    @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("addresses")
+}
+
+enum AddressLabel {
+  HOME
+  OFFICE
+  OTHER
+}
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // e.g. DD-2024-0001
+  userId          String
+  addressId       String
+
+  items           OrderItem[]
+  subtotal        Float
+  shippingCharge  Float       @default(0)
+  discount        Float       @default(0)
+  taxAmount       Float       @default(0)
+  totalAmount     Float
+
+  status          OrderStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  couponCode      String?
+  couponDiscount  Float?
+
+  notes           String?     // Customer order notes
+  adminNotes      String?
+
+  shippingCarrier String?     // e.g. Delhivery
+  trackingNumber  String?
+  trackingUrl     String?
+  estimatedDelivery DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  invoice         Invoice?
+  statusHistory   OrderStatusHistory[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  address Address @relation(fields: [addressId], references: [id])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  variantId   String?
+  productName String  // Snapshot at time of order
+  productImage String?
+  size        String?
+  color       String?
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  RETURN_REQUESTED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  COD_PENDING
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  COD
+  UPI
+}
+
+// ─── INVOICE ──────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  invoiceNumber String  @unique // e.g. INV-2024-0001
+  pdfUrl       String?
+  gstNumber    String?
+  issuedAt     DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("invoices")
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  rating    Int      // 1-5
+  title     String?
+  body      String   @db.Text
+  images    String[] @default([])
+  isVerified Boolean @default(false) // Verified purchase
+  isApproved Boolean @default(false) // Admin approves before showing
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+// ─── COUPONS ─────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id              String     @id @default(cuid())
+  code            String     @unique
+  description     String?
+  discountType    DiscountType
+  discountValue   Float      // % or flat amount
+  minOrderAmount  Float?
+  maxDiscount     Float?     // Cap for percentage discounts
+  usageLimit      Int?
+  usageCount      Int        @default(0)
+  isActive        Boolean    @default(true)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  createdAt       DateTime   @default(now())
+
+  @@map("coupons")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+// ─── CUSTOM STITCHING REQUESTS ────────────────────────────────────────────────
+
+model CustomStitchingRequest {
+  id          String             @id @default(cuid())
+  name        String
+  phone       String
+  email       String?
+  description String             @db.Text
+  measurements Json?             // Flexible JSON for measurements
+  referenceImages String[]       @default([])
+  budget      String?
+  status      StitchingStatus    @default(PENDING)
+  adminNotes  String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("custom_stitching_requests")
+}
+
+enum StitchingStatus {
+  PENDING
+  REVIEWED
+  QUOTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ─── PRIVATE VIEWING REQUESTS ─────────────────────────────────────────────────
+
+model PrivateViewingRequest {
+  id          String        @id @default(cuid())
+  name        String
+  phone       String
+  email       String?
+  preferredDate DateTime?
+  message     String?
+  status      ViewingStatus @default(PENDING)
+  adminNotes  String?
+  createdAt   DateTime      @default(now())
+
+  @@map("private_viewing_requests")
+}
+
+enum ViewingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// ─── NEWSLETTER / CONTACTS ────────────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("newsletter_subscribers")
+}
+
+// ─── INVENTORY ALERTS ─────────────────────────────────────────────────────────
+
+model InventoryAlert {
+  id        String   @id @default(cuid())
+  variantId String
+  threshold Int      @default(5)  // Alert when stock <= threshold
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("inventory_alerts")
+}
+
+// ─── BANNERS & CMS ────────────────────────────────────────────────────────────
+
+model Banner {
+  id          String      @id @default(cuid())
+  title       String
+  subtitle    String?
+  imageUrl    String?
+  videoUrl    String?
+  linkUrl     String?
+  buttonText  String?
+  displayOrder Int        @default(0)
+  isActive    Boolean     @default(true)
+  type        BannerType  @default(HERO)
+  createdAt   DateTime    @default(now())
+
+  @@map("banners")
+}
+
+enum BannerType {
+  HERO
+  PROMOTIONAL
+  CATEGORY
+}
+
+// ─── SITE SETTINGS ────────────────────────────────────────────────────────────
+
+model SiteSettings {
+  id                    String   @id @default(cuid())
+  shopName              String   @default("Dharsan Dresses")
+  tagline               String?
+  logoUrl               String?
+  faviconUrl            String?
+  email                 String?
+  phone                 String?
+  whatsappNumber        String?
+  address               String?
+  city                  String?
+  state                 String?
+  pincode               String?
+  gstNumber             String?
+  freeShippingThreshold Float    @default(1000)
+  shippingCharge        Float    @default(80)
+  instagramUrl          String?
+  facebookUrl           String?
+  youtubeUrl            String?
+  maintenanceMode       Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+
+  @@map("site_settings")
+}

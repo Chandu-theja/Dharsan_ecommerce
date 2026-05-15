@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dharsan-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dharsan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-dharsan_dresses}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dharsan}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dharsan-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dharsan-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dharsan}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-dharsan_dresses}
+      NODE_ENV: production
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    networks:
+      - dharsan-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Nginx reverse proxy with SSL termination
+  nginx:
+    image: nginx:alpine
+    container_name: dharsan-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    networks:
+      - dharsan-net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  dharsan-net:
+    driver: bridge

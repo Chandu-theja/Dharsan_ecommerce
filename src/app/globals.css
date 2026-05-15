@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS VARIABLES ─────────────────────────────────────────────────────── */
+:root {
+  --font-cormorant: 'Cormorant Garamond', Georgia, serif;
+  --font-dm-sans: 'DM Sans', system-ui, sans-serif;
+
+  --color-navy-950: #060B1A;
+  --color-navy-900: #0A1128;
+  --color-navy-800: #111D3D;
+  --color-navy-700: #1C2E5C;
+  --color-gold-500: #C8991E;
+  --color-gold-400: #E5B83A;
+  --color-cream-100: #FAF7F0;
+}
+
+/* ─── BASE ───────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-dm-sans);
+  background-color: #FDFCF9;
+  color: #1A1A2E;
+  line-height: 1.6;
+}
+
+/* ─── SCROLLBAR ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #FAF7F0; }
+::-webkit-scrollbar-thumb { background: #C8991E; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #A97B12; }
+
+/* ─── SELECTION ──────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(200, 153, 30, 0.25);
+  color: #0A1128;
+}
+
+/* ─── UTILITIES ──────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+
+  .font-display { font-family: var(--font-cormorant); }
+  .font-body { font-family: var(--font-dm-sans); }
+
+  /* Gold shimmer animation for loading skeletons */
+  .skeleton {
+    background: linear-gradient(90deg, #F5EFE1 25%, #EDE2CC 50%, #F5EFE1 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Gold text gradient */
+  .text-gold-gradient {
+    background: linear-gradient(135deg, #C8991E, #E5B83A, #C8991E);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Container with max width */
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Product card hover effect */
+  .product-card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover;
+  }
+
+  /* Button base styles */
+  .btn-primary {
+    @apply bg-gold-500 hover:bg-gold-600 text-white font-body font-semibold
+           px-6 py-3 rounded transition-all duration-200 
+           shadow-gold hover:shadow-gold-lg active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-navy-800 text-navy-800 hover:bg-navy-800 hover:text-white
+           font-body font-semibold px-6 py-3 rounded transition-all duration-200;
+  }
+
+  .btn-outline-gold {
+    @apply border-2 border-gold-500 text-gold-500 hover:bg-gold-500 hover:text-white
+           font-body font-semibold px-6 py-3 rounded transition-all duration-200;
+  }
+}
+
+/* ─── COMPONENTS ─────────────────────────────────────────────────────────── */
+@layer components {
+  /* Section heading */
+  .section-heading {
+    @apply font-display text-3xl md:text-4xl lg:text-5xl font-semibold text-navy-900 leading-tight;
+  }
+
+  /* Gold divider line */
+  .gold-divider {
+    @apply w-16 h-0.5 bg-gold-500 mx-auto;
+  }
+
+  /* Badge */
+  .badge-new { @apply bg-gold-500 text-white text-xs font-semibold px-2 py-0.5 rounded; }
+  .badge-sale { @apply bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded; }
+  .badge-featured { @apply bg-navy-800 text-gold-400 text-xs font-semibold px-2 py-0.5 rounded; }
+
+  /* Input field */
+  .input-field {
+    @apply w-full border border-gray-200 rounded px-4 py-3 text-navy-900
+           placeholder-gray-400 focus:outline-none focus:border-gold-500 
+           focus:ring-2 focus:ring-gold-500/20 transition-colors duration-200
+           font-body text-sm bg-white;
+  }
+
+  /* Announcement bar */
+  .announcement-bar {
+    @apply bg-navy-900 text-gold-400 text-xs font-body font-medium py-2;
+  }
+}
+
+/* ─── ANIMATIONS ─────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero video overlay */
+.hero-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(6, 11, 26, 0.5) 0%,
+    rgba(6, 11, 26, 0.3) 50%,
+    rgba(6, 11, 26, 0.7) 100%
+  );
+}
+
+/* Price styling */
+.price-original { @apply line-through text-gray-400 text-sm; }
+.price-sale { @apply text-red-600 font-semibold; }
+.price-regular { @apply text-navy-900 font-semibold; }
+
+/* Admin sidebar */
+.admin-sidebar-link {
+  @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium 
+         text-navy-300 hover:bg-navy-700 hover:text-white transition-all duration-200;
+}
+
+.admin-sidebar-link.active {
+  @apply bg-gold-500 text-white;
+}
+
+/* Toast customization */
+.toast-success { @apply bg-navy-900 text-white; }
+.toast-error { @apply bg-red-600 text-white; }
