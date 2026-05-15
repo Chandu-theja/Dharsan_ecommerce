@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, Package, Home, MessageCircle } from 'lucide-react';
+import { CheckCircle2, Package, Home, MessageCircle, Loader2 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const params = useSearchParams();
   const orderNumber = params.get('orderNumber');
   const { clearCart } = useCartStore();
@@ -65,5 +65,13 @@ export default function OrderSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cream-50 flex items-center justify-center"><Loader2 className="animate-spin text-gold-500" size={32} /></div>}>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }

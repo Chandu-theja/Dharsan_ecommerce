@@ -38,7 +38,7 @@ async function getProducts(filter: 'new' | 'featured' | 'sale'): Promise<Product
       isOnSale: p.isOnSale,
       averageRating: p.averageRating,
       reviewCount: p.reviewCount,
-      variants: p.variants,
+      variants: p.variants.map((v) => ({ ...v, size: v.size ?? undefined })),
     }));
   } catch (err) {
     // During initial setup before DB is seeded, return empty

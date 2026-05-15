@@ -115,7 +115,7 @@ export default async function ProductsPage({ searchParams }: Props) {
                   isOnSale: p.isOnSale,
                   averageRating: p.averageRating,
                   reviewCount: p.reviewCount,
-                  variants: p.variants,
+                  variants: p.variants.map((v) => ({ ...v, size: v.size ?? undefined })),
                 }}
               />
             ))}

@@ -1,10 +1,10 @@
 # ─── Stage 1: Dependencies ────────────────────────────────────────────────
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl openssl-dev
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci --no-audit --no-fund
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 RUN npx prisma generate
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────
@@ -32,8 +32,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Install dumb-init for clean signal handling
-RUN apk add --no-cache dumb-init openssl
+# Install dumb-init for clean signal handling and openssl
+RUN apk add --no-cache dumb-init openssl openssl-dev
 
 # Copy public assets
 COPY --from=builder /app/public ./public
