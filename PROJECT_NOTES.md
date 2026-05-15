@@ -204,17 +204,14 @@ Currently products are fetched in one query — no pagination yet.
 
 ### Phase 1 — Make It Work (Do Now)
 - [ ] Fix 404 on all pages (Nginx config)
-- [ ] Fix image loading (configure OCI Object Storage or use local images)
 - [ ] Fix Instagram thumbnail display (`next.config.js` image domains)
 - [ ] Verify Docker volume persistence (postgres data survives restarts)
-- [ ] Set up SSL (Let's Encrypt via certbot)
-- [ ] Point domain `dharsandresses.com` to OCI server IP
-- [ ] Change default admin password
-- [ ] Add real product photos and descriptions
 
-### Phase 2 — Make It Reliable
+### Phase 2 — Add Content & Make It Reliable
+- [ ] Configure OCI Object Storage bucket for product images
+- [ ] Add real product photos and descriptions (see detailed steps below)
+- [ ] Change default admin password
 - [ ] Move database to OCI Autonomous Database (free, managed, auto-backup)
-- [ ] Move images to OCI Object Storage with CDN
 - [ ] Add database connection pooling (PgBouncer or Prisma Accelerate)
 - [ ] Add proper error pages (404, 500)
 - [ ] Set up uptime monitoring (UptimeRobot — free)
@@ -222,7 +219,7 @@ Currently products are fetched in one query — no pagination yet.
 
 ### Phase 3 — Make It Fast & Premium
 - [ ] Implement Meilisearch for accurate product search
-- [ ] Add product filtering (by category, price range, color, fabric)
+- [ ] Add product filtering (Meesho/Nykaa style — price, category, fabric, color, occasion, discount)
 - [ ] Implement cursor-based pagination (24 products/page)
 - [ ] Add image optimization (WebP conversion, lazy loading)
 - [ ] Implement Redis caching for product listings
@@ -234,12 +231,148 @@ Currently products are fetched in one query — no pagination yet.
 ### Phase 4 — Make It Grow
 - [ ] Add product CSV/bulk import tool for admin
 - [ ] Build customer loyalty points system
-- [ ] Add saree customization/stitching booking flow
+- [ ] Add saree customization/stitching booking flow with Google Calendar sync
 - [ ] Integrate Delhivery for live shipping tracking
 - [ ] Add product reviews with photo uploads
 - [ ] Telugu + Hindi language support (next-intl)
 - [ ] WhatsApp catalog integration
 - [ ] SEO: submit sitemap to Google Search Console
+
+### Phase 5 — Go Live (Final Step)
+- [ ] Set up SSL (Let's Encrypt via certbot)
+- [ ] Point domain `dharsandresses.com` to OCI server IP (DNS A record)
+- [ ] Switch Razorpay from test → live keys
+- [ ] Submit sitemap to Google Search Console
+- [ ] Final end-to-end test with a real ₹1 order
+
+---
+
+## Phase 2 — Detailed Instructions: Uploading Products & Images
+
+This is the exact step-by-step for adding real product photos and details, compatible with the current setup.
+
+### Step 1 — Set Up OCI Object Storage (one-time setup)
+
+OCI Object Storage = a free bucket where your product images will live. The website reads images from public URLs.
+
+1. **Log in to OCI Console** → https://cloud.oracle.com/
+2. **Create a bucket:**
+   - Menu → Storage → Object Storage & Archive Storage → Buckets
+   - Click "Create Bucket"
+   - Name: `dharsan-dresses-images`
+   - Storage Tier: Standard
+   - Public Access: enable "Object: Allow access to objects"
+   - Click "Create"
+3. **Get the bucket's public URL** — looks like:
+   ```
+   https://objectstorage.<region>.oraclecloud.com/n/<namespace>/b/dharsan-dresses-images/o/
+   ```
+   (e.g., `https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmxxxxxx/b/dharsan-dresses-images/o/`)
+4. **Create API credentials:**
+   - Top right profile icon → User Settings → Customer Secret Keys → Generate
+   - Save the Access Key ID and Secret Access Key
+5. **Add to `.env` on the OCI server:**
+   ```env
+   OCI_BUCKET_NAME=dharsan-dresses-images
+   OCI_BUCKET_NAMESPACE=<your namespace>
+   OCI_REGION=ap-mumbai-1
+   OCI_ACCESS_KEY_ID=<from step 4>
+   OCI_SECRET_ACCESS_KEY=<from step 4>
+   NEXT_PUBLIC_BUCKET_URL=https://objectstorage.ap-mumbai-1.oraclecloud.com/n/<namespace>/b/dharsan-dresses-images/o
+   ```
+6. **Restart the app:** `docker compose restart app`
+
+### Step 2 — Prepare Product Photos
+
+Before uploading, prep each saree's photos:
+
+- **Format:** JPG or WebP (smaller file size)
+- **Size:** 1200×1500px (4:5 ratio, portrait — fashion standard)
+- **Quality:** 80–85% JPG compression (look good, load fast)
+- **Naming:** `kanjivaram-red-001.jpg`, `kanjivaram-red-002.jpg` (use dashes, no spaces)
+- **Number per product:** 4–6 images recommended
+  - Front view (full saree)
+  - Back / pallu detail
+  - Close-up of design/zari work
+  - Model wearing it (if available)
+  - Color swatch / fabric texture close-up
+
+**Tip:** Use free tools to compress before upload:
+- https://tinypng.com (online, drag-drop)
+- https://squoosh.app (Google, advanced settings)
+
+### Step 3 — Add a Product via Admin Panel
+
+The flow once OCI Storage is connected:
+
+1. Visit `https://dharsandresses.com/admin` (or the IP for now)
+2. Log in with admin credentials
+3. Go to **Products → Add New Product**
+4. Fill in fields:
+   ```
+   Name:         Kanjivaram Red Silk Saree
+   Slug:         kanjivaram-red-silk-saree (auto-generated)
+   Category:     Silk Sarees
+   Fabric:       Pure Kanjivaram Silk
+   Price:        ₹12,500
+   Compare Price: ₹15,000  (shows as strikethrough — discount %)
+   Stock:        10
+   SKU:          DHR-SLK-001
+   Occasion:     [Wedding, Festival]
+   Colors:       [Red, Gold]
+   Description:  (rich text — 2-3 paragraphs about the saree, weave, occasion fit)
+   Care Instructions: Dry clean only. Store wrapped in muslin cloth.
+   ```
+5. **Upload images:**
+   - Click "Upload Images" → select 4–6 prepped photos
+   - Admin panel uploads them to OCI bucket → saves the URLs in DB
+   - First image = thumbnail (shown on product listing)
+6. Click **Save & Publish**
+7. Product is now live at `/products/kanjivaram-red-silk-saree`
+
+### Step 4 — Bulk Import via CSV (for many products at once)
+
+When you have 50+ products to add, use the CSV importer (will be built in Phase 4):
+
+1. **Download CSV template** from admin → Products → Import → Download Template
+2. **Fill it in** with one product per row:
+   ```csv
+   name,slug,category,fabric,price,compare_price,stock,sku,colors,occasion,description,image_urls
+   Kanjivaram Red Silk Saree,kanjivaram-red,Silk Sarees,Kanjivaram,12500,15000,10,DHR-SLK-001,"Red,Gold","Wedding,Festival","Pure Kanjivaram silk...","url1.jpg,url2.jpg"
+   ```
+3. **Upload images to OCI bucket FIRST** (drag-drop in OCI console) → copy the public URLs
+4. **Paste URLs into the `image_urls` column** (comma-separated)
+5. **Upload CSV** in admin panel → click "Validate" → click "Import"
+6. The importer:
+   - Creates/updates products by SKU
+   - Links to existing image URLs
+   - Shows a report (X created, Y updated, Z failed with reasons)
+
+### Step 5 — Edit / Restock / Mark Out of Stock
+
+- **Edit:** Admin → Products → click product → edit any field → Save
+- **Restock:** Update the `Stock` field (e.g., from 0 to 15)
+- **Hide temporarily:** Toggle "Published" to OFF (stays in DB but hidden from site)
+- **Delete:** Permanent — use with caution; better to unpublish
+
+### Step 6 — Verify on the Live Site
+
+After adding a product, check:
+1. It shows up at `/products` (listing page) with correct thumbnail
+2. Click into the product → all images load
+3. Add to cart works
+4. Filter by category/fabric shows it correctly
+5. Image is sharp on mobile (test on phone)
+
+### Common Issues During Upload
+
+| Problem | Cause | Fix |
+|---------|-------|-----|
+| Image upload fails | OCI credentials wrong in `.env` | Re-check `OCI_ACCESS_KEY_ID` and secret |
+| Image uploads but doesn't show on site | Bucket not set to public | OCI Console → Bucket → Edit Visibility → Public |
+| Image too slow to load | File too large (>500KB) | Compress with tinypng.com before upload |
+| Wrong color on website | Image color space is CMYK | Re-export as sRGB JPG |
+| Image stretched / cropped weird | Wrong aspect ratio | Use 4:5 (1200×1500) portrait crop |
 
 ---
 
