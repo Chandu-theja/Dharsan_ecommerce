@@ -17,6 +17,34 @@ services:
     networks:
       - dharsan-net
 
+  # ─── ONE-SHOT INIT ─────────────────────────────────────────────────────
+  # Applies the Prisma schema and runs the seed (idempotent via upsert).
+  # Runs on every `docker compose up` and exits. The app only starts after this completes.
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: dharsan-db-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - dharsan-net
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo '→ Applying Prisma schema (db push)…'
+        npx prisma db push --accept-data-loss --skip-generate
+        echo '→ Seeding initial data (idempotent)…'
+        npx tsx prisma/seed.ts
+        echo '✓ db-init completed'
+
   app:
     build:
       context: .
@@ -26,6 +54,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     env_file:
       - .env
     networks:
