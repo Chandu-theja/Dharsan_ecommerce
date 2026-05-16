@@ -304,8 +304,30 @@ The shop's catalogue lives in ER4U ERP at `er4uenterprise.in/er4u/dharsandresses
 | 2.0.c | Confirm product-name construction rule | — | **Approve** `{Brand} {Item Name} ({Barcode})` format, or give me a different rule |
 | 2.0.d | ✅ Extended `Product` schema (`brand`, `hsnCode`, `gstRate`, `originalSku`, `stockQuantity`, `metadata`) — 2026-05-16 | Done | Nothing |
 | 2.0.e | ✅ Wrote import script `scripts/import-er4u.ts` + HSN→Category map `scripts/hsn-category-map.ts` — 2026-05-16 | Done | **Review** `scripts/hsn-category-map.ts` before running import. Edit any category names/slugs to taste |
-| 2.0.f | Run the schema migration + bulk import (5,933 items, ~1 min) | — | **On server:** `git pull && docker compose build && docker compose up -d` (rebuilds with new schema + `xlsx` dep). Then `docker compose cp ~/STOCK_REPORT_20260516094742.xlsx app:/tmp/stock.xlsx && docker compose exec app npm run db:import-er4u -- /tmp/stock.xlsx`. SCP the xlsx to the server first if it's not there yet |
-| 2.0.g | Verify catalogue on the live site | — | **Browse** `http://144.24.153.46/products` and confirm products show up. Spot-check 5 |
+| 2.0.f | ✅ Ran schema migration + bulk import (2026-05-16) — 5,646 inserted + 286 updated + 1 skipped. 31 categories, 29 subcategories | Done | Nothing |
+| 2.0.g | Verify catalogue on the live site | — | **Browse** `http://144.24.153.46/products` (HTTP 200 verified). Spot-check 5 — confirm display names, prices, stock look right |
+
+**Live distribution (post-import):**
+| Category | Items |
+|----------|-------|
+| Men / Shirts | 1,150 |
+| Fabric / Polyester Suiting | 919 |
+| Men / Trousers | 560 |
+| Men / Suits | 514 |
+| Fabric / Linen | 413 |
+| Fabric / Synthetic Filament | 393 |
+| Fabric / Cotton Shirting | 307 |
+| Fabric / Poly-Cotton Shirting | 244 |
+| Men / Other | 214 |
+| Fabric / Cotton Dyed | 197 |
+| Fabric / Shirting Fabric | 189 |
+| Fabric / Cotton Yarn-Dyed | 184 |
+| Men / T-Shirts | 158 |
+| Fabric / Suiting Fabric | 90 |
+| Men / Activewear | 89 |
+| Other small buckets (Innerwear, Sweaters, Silk, Dhotis, Coats, Wool, Ties, Women's Dresses, etc.) | ~300 |
+
+**Observation:** "Men / Other" (214 items) = items where HSN didn't match any prefix AND name keywords didn't trigger. Owner can review these in Prisma Studio later and edit the HSN map for next re-import.
 
 **Decisions you owe me (block 2.0.b and 2.0.c):**
 1. Display-name format: `{Brand} {Item Name} ({Barcode})` — yes / suggest alternative?
