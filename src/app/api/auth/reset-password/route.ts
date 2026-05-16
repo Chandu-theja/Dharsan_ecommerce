@@ -81,9 +81,10 @@ export async function POST(req: NextRequest) {
       db.session.deleteMany({ where: { userId: user.id } }),
     ]);
 
+    console.log(`[reset-password] ${email} updated password successfully`);
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('reset-password error:', err);
+    console.error('[reset-password] error:', err);
     return NextResponse.json({ error: 'Could not reset password. Please try again.' }, { status: 500 });
   }
 }

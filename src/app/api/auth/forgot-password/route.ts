@@ -66,17 +66,22 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const resetUrl = `${baseUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
-    await sendPasswordResetEmail({
-      to: email,
-      customerName: user.name || '',
-      resetUrl,
-      expiresInMinutes: TOKEN_TTL_MIN,
-    });
+    try {
+      await sendPasswordResetEmail({
+        to: email,
+        customerName: user.name || '',
+        resetUrl,
+        expiresInMinutes: TOKEN_TTL_MIN,
+      });
+      console.log(`[forgot-password] sent reset email to ${email}`);
+    } catch (mailErr) {
+      // SMTP failure — log loudly but don't leak to caller.
+      console.error(`[forgot-password] SMTP failed for ${email}:`, mailErr);
+    }
 
     return okResponse;
   } catch (err) {
-    // Never expose internals to the user, but log for ops.
-    console.error('forgot-password error:', err);
+    console.error('[forgot-password] unexpected error:', err);
     return okResponse;
   }
 }

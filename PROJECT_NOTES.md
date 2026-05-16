@@ -960,6 +960,8 @@ Reference: how top Indian e-commerce sites (Meesho, Nykaa style) are structured.
 | Delhivery shipping integration | **Deferred to Phase 5 (Pre-Launch Infra)** — focus on UI first |
 | Invoice PDF generation | **Deferred to Phase 5 (Pre-Launch Infra)** — focus on UI first |
 | Current sprint focus | **Browse UX + Login + Signup** — how a visitor discovers a category, browses products, and creates / signs in to their account |
+| Admin "reset customer password" feature (link + direct-set) | **Deferred to Phase 7 (Make It Grow)** per owner 2026-05-16 — only needed if real customers complain about email/OTP flow |
+| Password reset email — URL fallback under button? | **Hidden** per owner — only the button shows. Industry-standard trade-off: if a user with button-stripped email client complains, we restore the URL block |
 | Product display name | **`{Brand} {Item Name} ({Barcode})`** — e.g. "MARK ANTONY 2 BUTTON COAT (RM181277)". Items with no brand: `{Item Name} ({Barcode})` |
 | Product URL slug | **Clean SEO slug** — e.g. `/product/mark-antony-2-button-coat-rm181277`. Barcode lives at end for uniqueness. Internal `originalSku` field stores raw barcode |
 | ER4U product images | **Pending ER4U team discussion** (owner is following up). Until then: catalogue ships with brand-gradient placeholders. Once images are available, we'll know which scraper pattern to use |

@@ -187,15 +187,8 @@ export async function sendPasswordResetEmail(params: {
              style="display:inline-block;background:#0A1128;color:#C8991E;padding:14px 36px;border-radius:6px;font-family:sans-serif;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:1px;">
             Reset Password
           </a>
-        </div>
-
-        <div style="background:#FAF7F0;border:1px solid #EDE2CC;border-radius:8px;padding:16px;margin-bottom:24px;">
-          <p style="font-family:sans-serif;font-size:13px;color:#6B7280;margin:0;">
+          <p style="font-family:sans-serif;font-size:12px;color:#9CA3AF;margin:16px 0 0;">
             This link expires in <strong>${params.expiresInMinutes} minutes</strong>.
-            If the button above doesn't work, copy and paste this URL into your browser:
-          </p>
-          <p style="font-family:'Courier New',monospace;font-size:12px;color:#0A1128;background:#fff;padding:10px;margin:8px 0 0;border-radius:4px;word-break:break-all;">
-            ${params.resetUrl}
           </p>
         </div>
 

@@ -121,15 +121,17 @@ export default function ForgotPasswordPage() {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 border border-green-200 mb-4">
                 <CheckCircle2 size={32} className="text-green-600" />
               </div>
-              <h2 className="font-display text-3xl font-semibold text-navy-900 mb-2">Check your email</h2>
-              <p className="font-body text-sm text-gray-600 mb-2">
-                If an account exists for <strong>{email.trim().toLowerCase()}</strong>, we've sent a password reset link.
+              <h2 className="font-display text-3xl font-semibold text-navy-900 mb-2">Check your inbox</h2>
+              <p className="font-body text-sm text-gray-600 mb-4">
+                If an account exists for <strong>{email.trim().toLowerCase()}</strong>, we've sent a password reset link. The link expires in 30 minutes.
               </p>
-              <p className="font-body text-xs text-gray-500 mb-6">
-                The link expires in 30 minutes. Don't forget to check your spam folder.
-              </p>
-              <p className="font-body text-xs text-gray-500 mb-6">
-                Still no email after 5 minutes? WhatsApp us — we'll reset it for you.
+              <div className="p-3 mb-6 bg-yellow-50 border border-yellow-200 rounded text-left">
+                <p className="font-body text-xs text-yellow-900">
+                  <strong>Don't see it?</strong> Check your <strong>spam / promotions</strong> folder — Gmail sometimes filters automated emails. Mark it as "Not Spam" so future emails land in your inbox.
+                </p>
+              </div>
+              <p className="font-body text-xs text-gray-500 mb-2">
+                Still nothing after 5 minutes? WhatsApp the store — we'll reset it for you instantly.
               </p>
               <div className="mt-6 flex flex-col sm:flex-row gap-2">
                 <a
