@@ -565,4 +565,64 @@ GOOGLE_SERVICE_ACCOUNT_KEY=<base64 encoded JSON key>
 
 ---
 
+---
+
+## Production-Grade Auth (Phase 3+) — What's Needed From You
+
+Currently we have basic email + password auth (NextAuth Credentials + Google). To match Meesho/Nykaa you'll need to decide on a few things and sign up for the right services.
+
+### What Meesho/Nykaa actually do
+
+- **Signup/login:** mobile number + OTP (the primary path; email is optional)
+- **Password reset:** email link OR mobile OTP
+- **Order confirmation:** SMS + email + WhatsApp
+- **Email verification:** soft-required (banner reminds the user)
+
+### The four building blocks you'd add
+
+| Block | What it does | Service options | Cost (India) |
+|-------|-------------|-----------------|--------------|
+| **Mobile OTP** | 6-digit code via SMS for signup/login/password reset | **MSG91** (India-focused, DLT-compliant) ✅, Fast2SMS, Twilio | MSG91 ~₹0.20/SMS, Twilio ~₹1/SMS |
+| **Email verification + reset** | Verify email on signup, send password-reset links | **Resend** (best DX) ✅, Postmark, SendGrid, or Gmail SMTP (already planned) | Resend free up to 3,000/month, then ₹1,650/mo for 50k |
+| **WhatsApp OTP** (optional) | OTP delivered via WhatsApp instead of SMS — cheaper and higher delivery rate | **MSG91 WhatsApp**, Twilio WhatsApp, Gupshup | MSG91 WhatsApp ~₹0.10/message |
+| **Rate limiting / abuse prevention** | Block bots from spamming OTPs | **Upstash Redis** (free tier) + a small middleware | ₹0 on free tier |
+
+### What I'd recommend for Dharsan Dresses
+
+1. **MSG91 for SMS OTP** — they're India-focused, DLT-compliant (mandatory for SMS in India since 2020), affordable, and their dashboard is simple. Use their "Send OTP" API.
+2. **Gmail SMTP for password-reset emails** (already in plan) — free, 500/day is plenty for a single-store business. Upgrade to Resend later if volume grows.
+3. **Skip WhatsApp OTP for now** — use WhatsApp for *notifications* (order updates) only, via Twilio (already planned). Adds complexity for marginal benefit.
+4. **Upstash Redis for rate limiting** — free tier covers all your needs for years.
+
+### What you need to do (when we get to Phase 3)
+
+| Step | Time | What's needed |
+|------|------|---------------|
+| Sign up at **msg91.com** | 10 min | PAN, company name, then submit a DLT registration form (1-3 days approval, free) |
+| Register a **sender ID** with MSG91 | 1 day approval | 6-char ID like `DRHSAN` shown on SMS |
+| Submit one **DLT-approved SMS template** | Same day | Template text like: `{#var#} is your OTP to login to Dharsan Dresses. Valid for 5 min.` |
+| Set up **Gmail App Password** | 5 min | 2FA on your Gmail, then generate app password |
+| (Optional) Sign up at **upstash.com** | 5 min | Free tier, no card needed |
+
+### Implementation plan when ready (Phase 3, ~1 week of work)
+
+1. Add `phoneVerified DateTime?` and `emailVerified DateTime?` columns to `User` table (emailVerified already exists)
+2. Add `OtpToken` table (phone, code_hash, type, expires_at, attempts)
+3. Build endpoints: `POST /api/auth/otp/send`, `POST /api/auth/otp/verify`
+4. Add OTP step to register flow (verify phone before account creation)
+5. Add OTP login option to login page (phone + OTP instead of email + password)
+6. Wire up email-based password reset (`/forgot-password` already has the page)
+7. Add rate limiting middleware (5 OTPs per phone per hour)
+8. Optional: add an "email verification" banner shown to users who registered before email-verify was enforced
+
+### What I'm NOT doing now (still in Phase 1)
+
+- No OTP integration
+- No actual email sending (the forgot-password page is a clean stub with WhatsApp/phone fallback)
+- No phone verification
+
+These are deliberate — Phase 1 is "make the site work", Phase 3 is "production-grade auth". Don't want to spread Phase 1 thin.
+
+---
+
 *Last updated: 2026-05-15*

@@ -20,22 +20,29 @@ function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      toast.error('Please enter email and password');
+      return;
+    }
     setLoading(true);
     try {
       const res = await signIn('credentials', {
-        email,
+        email: cleanEmail,
         password,
         redirect: false,
       });
       if (res?.error) {
         toast.error('Invalid email or password');
-      } else {
+      } else if (res?.ok) {
         toast.success('Welcome back!');
         router.push(callbackUrl);
         router.refresh();
+      } else {
+        toast.error('Login failed. Please try again.');
       }
     } catch {
-      toast.error('Login failed. Please try again.');
+      toast.error('Network error. Please check your connection.');
     } finally {
       setLoading(false);
     }
