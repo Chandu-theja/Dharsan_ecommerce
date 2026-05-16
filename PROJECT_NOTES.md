@@ -200,50 +200,245 @@ Currently products are fetched in one query — no pagination yet.
 
 ---
 
-## Roadmap — Making It a Premium Website
+## Current Site Audit (Baseline — 2026-05-15)
 
-### Phase 1 — Make It Work (Do Now)
-- [ ] Fix 404 on all pages (Nginx config)
-- [ ] Fix Instagram thumbnail display (`next.config.js` image domains)
-- [ ] Verify Docker volume persistence (postgres data survives restarts)
+Honest snapshot of where the site is **right now**, after Phase 1. Use this as the reference point for everything below.
 
-### Phase 2 — Add Content & Make It Reliable
-- [ ] Configure OCI Object Storage bucket for product images
-- [ ] Add real product photos and descriptions (see detailed steps below)
-- [ ] Change default admin password
-- [ ] Move database to OCI Autonomous Database (free, managed, auto-backup)
-- [ ] Add database connection pooling (PgBouncer or Prisma Accelerate)
-- [ ] Add proper error pages (404, 500)
-- [ ] Set up uptime monitoring (UptimeRobot — free)
-- [ ] Add Google Analytics
+### ✅ Works (functional, production quality)
+- Homepage: Hero, USP strip, dynamic CategoryShowcase, FeaturedProducts (fetches from DB), Testimonials, CraftBanner, Instagram CTA, Brand Story
+- Navigation: desktop mega menu, mobile drawer, working search bar (submits to `/products?search=`), cart icon with badge
+- Footer: trust badges, brand info, social links, shop/services/help link columns
+- Product listing `/products`: search, basic sort (API supports it; UI bug: dropdown's `onChange` isn't wired), grid, empty state
+- Product detail `/product/[slug]`: breadcrumbs, image gallery (no zoom), description, fabric/origin, AddToCartButton with variant + stock check, review display (read-only)
+- Category page `/category/[slug]`: lists products by category with sort and price-range query params
+- Checkout `/checkout`: auth gate, address selection, add new address, payment method selection, coupon input (validation server-side only), order creation, Razorpay modal, signature verification, COD path
+- Cart: Zustand store with localStorage persistence, drawer UI, stock validation
+- Auth: NextAuth Credentials + Google OAuth, register page (Meesho-style with strength meter), login page (with show/hide), forgot-password page (stub with WhatsApp fallback)
+- Admin dashboard `/admin`: stats cards (revenue, orders, customers, low stock), pending orders alert, recent 5 orders table
+- API: `/api/products`, `/api/addresses`, `/api/auth/*`, `/api/payments/create-order`, `/api/payments/verify`, `/api/health`
+- Order pipeline (backend only): order created on checkout, Razorpay verified server-side, stock deducted, invoice record auto-created, order-confirmation email + WhatsApp + owner alert sent
+- Branded 404, on-brand stub pages for about/contact/faq/privacy/terms/returns/shipping-policy/size-guide/track-order/private-viewing/wishlist/orders/profile
+- Auto-applying Prisma schema + idempotent seed on every `docker compose up` via `db-init` container
 
-### Phase 3 — Make It Fast & Premium
-- [ ] Implement Meilisearch for accurate product search
-- [ ] Add product filtering (Meesho/Nykaa style — price, category, fabric, color, occasion, discount)
-- [ ] Implement cursor-based pagination (24 products/page)
-- [ ] Add image optimization (WebP conversion, lazy loading)
-- [ ] Implement Redis caching for product listings
-- [ ] Add product zoom on hover, multiple image views
-- [ ] Add "Recently Viewed" and "Similar Products" sections
-- [ ] Implement Razorpay live payments
-- [ ] Set up Twilio WhatsApp notifications
+### 🟡 Stub (page exists, content/logic incomplete)
+- `/orders` — placeholder, no actual order history
+- `/wishlist` — placeholder, no DB read/write
+- `/profile` — placeholder, no edit form
+- `/track-order` — placeholder, no Delhivery lookup
+- `/forgot-password` — UI works, no email actually sent (SMTP not configured)
+- Newsletter subscribe in footer — input only, no API
+- Sort dropdown on `/products` — visual only, `onChange` not implemented
+- Admin: only dashboard exists — no product/order/customer/settings sub-pages
 
-### Phase 4 — Make It Grow
-- [ ] Add product CSV/bulk import tool for admin
-- [ ] Build customer loyalty points system
-- [ ] Add saree customization/stitching booking flow with Google Calendar sync
-- [ ] Integrate Delhivery for live shipping tracking
-- [ ] Add product reviews with photo uploads
-- [ ] Telugu + Hindi language support (next-intl)
-- [ ] WhatsApp catalog integration
-- [ ] SEO: submit sitemap to Google Search Console
+### ❌ Missing entirely (production blockers and feature gaps)
+- **Admin product management** — can't add/edit/delete products via UI (Prisma Studio is the only path)
+- **Admin order management** — can't view order details, update status, print invoice
+- **Image upload API** — `/api/upload` doesn't exist; images must be hand-pushed to OCI bucket and URLs typed into DB
+- **Order history & detail pages** for customers
+- **Wishlist API + UI**, **Review submission API**
+- **Real product filters** — sidebar with price slider / color / fabric / size / occasion / discount checkboxes (only `?minPrice`/`?maxPrice` query params work)
+- **Real-time search suggestions** dropdown
+- **Pagination / Load More** on product grid
+- **Variant selector UI** on product detail — size buttons + colour swatches (variants are loaded but not rendered as UI)
+- **"You may also like"** related products on product page
+- **Product image zoom** / lightbox / 360°
+- **Share buttons** (WhatsApp, copy link)
+- **Pincode serviceability check** on PDP and checkout
+- **Delhivery shipment creation** — orders never sync to Delhivery for label generation/tracking
+- **Delhivery webhook** to auto-update order status
+- **Email verification**, **phone OTP signup/login**, **real password reset**
+- **Invoice PDF download** — Invoice records exist but no `/api/invoices/[id]` and no PDF generation
+- **Error boundaries** (`error.tsx`, `global-error.tsx`)
+- **Loading states** (`loading.tsx`, skeleton screens)
+- **SEO**: no sitemap, no robots.txt, no JSON-LD structured data
+- **Analytics**: no Google Analytics 4, no Sentry, no event tracking
+- **Multi-language** — `next-intl` installed but unconfigured
+- **Stitching booking with Google Calendar** sync (form exists; calendar not wired)
+- **Coupon admin** — coupons applied at checkout but no UI to create them
+- **Bank offers / EMI** promotions
+- **Banner CMS** — `Banner` model exists, no admin UI
 
-### Phase 5 — Go Live (Final Step)
-- [ ] Set up SSL (Let's Encrypt via certbot)
-- [ ] Point domain `dharsandresses.com` to OCI server IP (DNS A record)
-- [ ] Switch Razorpay from test → live keys
+---
+
+## Roadmap — Phase-By-Phase to Meesho/Nykaa Parity
+
+Each phase has a single **outcome** and a checklist. Don't move forward until the outcome is met. Roughly ordered by what unblocks the next stage.
+
+### Phase 1 — Make It Work ✅ DONE
+**Outcome:** Site loads, all linked pages return a real page (not 404), Instagram-style images render, postgres data persists across restarts.
+
+- [x] Fixed 404s on all 16 missing pages
+- [x] Image domains (Unsplash, Instagram CDN, fbcdn) whitelisted
+- [x] Docker volume verified + documented
+- [x] Branded 404 page
+- [x] Dynamic CategoryShowcase
+- [x] Production-grade register flow with strength meter
+- [x] Forgot-password stub with WhatsApp fallback
+- [x] Auto-applying schema + seed via `db-init` container
+
+---
+
+### Phase 2 — Make It Sellable (CRITICAL: no real selling possible until done)
+**Outcome:** A real customer can buy a real product end-to-end. The shop owner can manage products and orders without touching the database.
+
+#### 2.1 — Image storage and upload
+- [ ] Create OCI Object Storage bucket `dharsan-dresses-images` (see "Phase 2 — Detailed Instructions" below)
+- [ ] Add OCI credentials to `.env` (`OCI_BUCKET_NAME`, `OCI_NAMESPACE`, `OCI_REGION`, `OCI_ACCESS_KEY_ID`, `OCI_SECRET_ACCESS_KEY`)
+- [ ] Build `POST /api/upload` endpoint — accepts image, uploads to OCI, returns public URL
+- [ ] Build a reusable `<ImageUploader />` admin component (drag-drop, progress, multi-file)
+
+#### 2.2 — Admin product management
+- [ ] `/admin/products` — list, search, filter, paginate
+- [ ] `/admin/products/new` — create product form (name, slug, category, fabric, price, comparePrice, stock, description, careInstructions, gender, isFeatured/isNewArrival/isOnSale flags)
+- [ ] `/admin/products/[id]/edit` — edit any field
+- [ ] Inline variant management (size + colour + stock)
+- [ ] Inline image management using `<ImageUploader />` — reorder, mark primary, delete
+- [ ] `DELETE /api/admin/products/[id]` (soft delete via `isPublished=false` recommended)
+- [ ] Server-side admin role guard (middleware)
+
+#### 2.3 — Admin order management
+- [ ] `/admin/orders` — list with filters by status, date range, customer
+- [ ] `/admin/orders/[orderNumber]` — full order detail with items, address, payment, status timeline
+- [ ] Update order status (CONFIRMED → PROCESSING → SHIPPED → DELIVERED → REFUNDED)
+- [ ] Add tracking number when shipping
+- [ ] Print/download invoice (see 2.7)
+
+#### 2.4 — Customer-facing orders
+- [ ] Real `/orders` page — list user's orders with status badges, total, date
+- [ ] `/orders/[orderNumber]` — full detail: items, shipping address, payment summary, status timeline, tracking link, "Need help?" CTA
+- [ ] `GET /api/orders` + `GET /api/orders/[orderNumber]` (auth-protected)
+
+#### 2.5 — Email actually sending
+- [ ] Gmail App Password generated (5 min)
+- [ ] Add `SMTP_*` env vars on server
+- [ ] Verify order confirmation email reaches the customer
+- [ ] Verify low-stock alert reaches the admin
+
+#### 2.6 — Delhivery shipping integration
+- [ ] Build `lib/delhivery.ts` shipment-creation function (`POST /api/cmu/create.json`)
+- [ ] On order CONFIRMED, auto-create Delhivery shipment, save waybill to `Order.trackingNumber`
+- [ ] Real `/track-order` page using `trackShipment(waybill)`
+- [ ] `POST /api/webhooks/delhivery` — receive status updates, map to OrderStatus enum, update DB
+- [ ] Pincode serviceability check on PDP ("Deliverable to your area" widget) and at checkout (validate before payment)
+
+#### 2.7 — Invoice PDF
+- [ ] Wire `@react-pdf/renderer` (already in `package.json`)
+- [ ] `GET /api/invoices/[invoiceNumber]` — generates PDF on demand
+- [ ] Email order confirmation: attach the PDF
+- [ ] Both customer order page and admin order page have "Download Invoice" button
+
+#### 2.8 — Operational hardening
+- [ ] Change default admin password (`admin@dharsandresses.com` / `Admin@Dharsan2026!`)
+- [ ] Move DB to OCI Autonomous Database (free tier, managed, auto-backup) — see ARCHITECTURE section
+- [ ] Set up UptimeRobot (free) to ping `/api/health` every 5 min
+- [ ] Add Google Analytics 4 (track page views, add-to-cart, purchase)
+- [ ] Add `error.tsx` (segment-level) and `global-error.tsx`
+- [ ] Add `loading.tsx` files where useful (products list, category, product detail)
+
+---
+
+### Phase 3 — Make It Trustworthy (CRITICAL before public launch)
+**Outcome:** A first-time visitor trusts the site enough to enter their card details. Account security matches Meesho/Nykaa standards.
+
+#### 3.1 — Auth hardening (see "Production-Grade Auth" section for service signups)
+- [ ] Email verification: send link on signup, gate checkout for unverified accounts (or just show a banner)
+- [ ] Real password reset: email-based token, `/reset-password?token=...` page, 30-min expiry
+- [ ] MSG91 + DLT registration done (1-3 days approval)
+- [ ] SMS OTP signup: phone-first signup option (Meesho-style)
+- [ ] SMS OTP login: alternative to email/password
+- [ ] Rate limiting on auth endpoints via Upstash Redis (5 OTPs/phone/hour)
+
+#### 3.2 — Error tracking and observability
+- [ ] Sentry account (free tier 5k events/month) → wire up `@sentry/nextjs`
+- [ ] All API routes wrap errors and report to Sentry
+- [ ] Client error boundary reports to Sentry
+
+#### 3.3 — SEO foundation
+- [ ] `next-sitemap` configured → `/sitemap.xml` generated at build time
+- [ ] `public/robots.txt` (allow all; sitemap reference)
+- [ ] JSON-LD structured data:
+  - `Product` schema on PDP (name, images, price, availability, rating, reviews)
+  - `Organization` schema in root layout (name, logo, address, social, contact)
+  - `BreadcrumbList` on category and product pages
+- [ ] Per-page Open Graph images (auto-generate from product image)
+
+#### 3.4 — Conversion essentials
+- [ ] Pincode serviceability widget on PDP
+- [ ] Estimated delivery date shown on PDP and checkout
+- [ ] "X people viewing this" / "Y bought in last 24h" social proof (optional)
+- [ ] Cart abandonment recovery: save guest cart server-side, email reminder after 24h (if user is logged in)
+
+---
+
+### Phase 4 — Make It Convert (UX polish to match Meesho/Nykaa)
+**Outcome:** Browsing feels effortless. Visitors can find what they want in under 30 seconds.
+
+#### 4.1 — Filtering (Meesho/Nykaa-style, plan already documented above)
+- [ ] Add `fabric`, `occasion[]`, `colors[]`, `discount` fields to `Product` schema (migration)
+- [ ] Sidebar filter component: price slider + presets, category, fabric, colour swatches, occasion, discount, in-stock toggle
+- [ ] Mobile: bottom-sheet filter drawer
+- [ ] `ActiveFilters` chip row with × to remove
+- [ ] URL-driven filter state — sharable/bookmarkable
+- [ ] Fix sort dropdown's `onChange` wiring (currently a no-op)
+- [ ] Pagination: "Load More" button OR numbered pagination, 24/page
+
+#### 4.2 — Search upgrade
+- [ ] Add **Meilisearch** as a Docker container alongside the app
+- [ ] Index all products on every product create/update (background task)
+- [ ] Real-time search-suggestions dropdown in Navbar (top 6 matches, debounced)
+- [ ] Typo tolerance (saree ↔ sari, kurta ↔ kurti) — comes free with Meilisearch
+
+#### 4.3 — Product detail page polish
+- [ ] Visual variant selector — size buttons + colour swatches (variants already in DB, just need UI)
+- [ ] Image zoom on hover + lightbox carousel (use `react-image-gallery` already in deps)
+- [ ] Share buttons: WhatsApp, copy link
+- [ ] "You may also like" — 4 related products (same category, exclude current)
+- [ ] Stock urgency: "Only 2 left in this size", "10 sold in last 24h"
+- [ ] Recently viewed strip at bottom (localStorage)
+
+#### 4.4 — Customer engagement features
+- [ ] Wishlist: `POST /api/wishlist`, `DELETE /api/wishlist/[productId]`, real `/wishlist` page (heart icon active state)
+- [ ] Review submission form on PDP for users who bought the product (use `Review.isVerified`)
+- [ ] Review photo upload (1-3 images per review)
+- [ ] Admin review moderation queue (set `isApproved` true/false)
+
+#### 4.5 — Checkout polish
+- [ ] Coupon validation: wire the Apply button to `POST /api/coupons/validate`, show discount in summary
+- [ ] Order notes / delivery instructions textarea
+- [ ] Saved addresses: edit, delete, default toggle
+- [ ] Express checkout: skip cart, go straight from "Buy Now" → checkout
+- [ ] Bank offers display ("10% off on HDFC cards") — purely informational, fed by `SiteSettings`
+
+---
+
+### Phase 5 — Make It Grow (catalogue scale & marketing features)
+**Outcome:** Shop owner can manage hundreds of products and run campaigns without engineering help.
+
+- [ ] **CSV bulk import** (`/admin/products/import`) — download template, upload, validate, dry-run preview, confirm
+- [ ] **Coupon admin** (`/admin/coupons`) — create, edit, expire, see usage stats
+- [ ] **Banner CMS** (`/admin/banners`) — hero slides, category banners, promotional strips, scheduled go-live
+- [ ] **Newsletter** — real subscribe endpoint, list export, simple campaign sender
+- [ ] **Customer admin** (`/admin/customers`) — list, view per-customer order history, lifetime value
+- [ ] **Inventory admin** (`/admin/inventory`) — low-stock alerts, bulk restock, stock movement log
+- [ ] **Stitching booking** — `/stitching` already exists; wire Google Calendar API to auto-create events when bookings come in
+- [ ] **Loyalty points** — schema additions, earn on order, redeem at checkout
+- [ ] **Multi-language** — configure `next-intl`, translate UI strings, Telugu + Hindi (categories already have `nameTE`/`nameHI` fields)
+- [ ] **WhatsApp catalog** integration (Twilio WhatsApp Business)
+- [ ] **Mobile app** (React Native) — same API, store on Play Store
+
+---
+
+### Phase 6 — Go Live (Final flip-the-switch)
+**Outcome:** Site is on the real domain, HTTPS, real payments, real customers.
+
+- [ ] Domain DNS pointed at OCI server IP (A record + AAAA if v6)
+- [ ] SSL: install `certbot`, issue cert, switch nginx to `nginx.ssl.conf`, cron the renewal
+- [ ] Razorpay: complete KYC, switch from test → live keys in `.env`
+- [ ] Twilio WhatsApp Business: template approval done, production sender on
+- [ ] Final end-to-end test: real ₹1 order from a real phone with a real card → full pipeline (payment → email → WhatsApp → shipping label → tracking)
 - [ ] Submit sitemap to Google Search Console
-- [ ] Final end-to-end test with a real ₹1 order
+- [ ] Bing Webmaster Tools (free, often missed)
+- [ ] Open the shop for the public 🎉
 
 ---
 
