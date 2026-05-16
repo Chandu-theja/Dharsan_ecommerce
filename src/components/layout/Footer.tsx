@@ -71,13 +71,13 @@ export default function Footer() {
                   Yadava St, Varadaraja Nagar,<br />Tirupati, Andhra Pradesh 517501
                 </span>
               </a>
-              <a href="tel:+91XXXXXXXXXX" className="flex items-center gap-2 text-sm text-navy-200 hover:text-gold-400 font-body">
+              <a href="tel:+919440250863" className="flex items-center gap-2 text-sm text-navy-200 hover:text-gold-400 font-body">
                 <Phone size={16} className="text-gold-500" />
-                +91 XXXXXXXXXX
+                +91 94402 50863
               </a>
-              <a href="mailto:info@dharsandresses.com" className="flex items-center gap-2 text-sm text-navy-200 hover:text-gold-400 font-body">
+              <a href="mailto:Dharsangroups@gmail.com" className="flex items-center gap-2 text-sm text-navy-200 hover:text-gold-400 font-body">
                 <Mail size={16} className="text-gold-500" />
-                info@dharsandresses.com
+                Dharsangroups@gmail.com
               </a>
             </div>
 

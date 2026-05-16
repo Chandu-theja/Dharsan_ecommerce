@@ -3,23 +3,37 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Mail, ArrowLeft, MessageCircle, Phone, CheckCircle2 } from 'lucide-react';
+import { Mail, ArrowLeft, MessageCircle, Phone, CheckCircle2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
       toast.error('Please enter a valid email');
       return;
     }
-    // Phase 2: POST /api/auth/forgot-password with the email.
-    // The endpoint will generate a reset token and email it via SMTP (Nodemailer + Gmail).
-    setSubmitted(true);
+    setLoading(true);
+    try {
+      // Endpoint always returns 200 (privacy: never reveal whether email is registered).
+      // Success here = "we processed it"; the user may or may not get an email.
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: clean }),
+      });
+      setSubmitted(true);
+    } catch {
+      // Even on network error we move to the success screen — same privacy reason.
+      setSubmitted(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,8 +79,12 @@ export default function ForgotPasswordPage() {
                   />
                 </div>
 
-                <button type="submit" className="w-full btn-primary flex items-center justify-center gap-2">
-                  <Mail size={16} />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
                   Send Reset Link
                 </button>
               </form>
@@ -80,7 +98,7 @@ export default function ForgotPasswordPage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <a
-                    href="https://wa.me/91XXXXXXXXXX?text=Hi%2C%20I%20need%20to%20reset%20my%20password%20for%20my%20Dharsan%20Dresses%20account"
+                    href="https://wa.me/919440250863?text=Hi%2C%20I%20need%20to%20reset%20my%20password%20for%20my%20Dharsan%20Dresses%20account"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded font-body text-sm font-medium hover:bg-green-700 transition-colors"
@@ -89,7 +107,7 @@ export default function ForgotPasswordPage() {
                     WhatsApp Us
                   </a>
                   <a
-                    href="tel:+91XXXXXXXXXX"
+                    href="tel:+919440250863"
                     className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-navy-900 text-navy-900 rounded font-body text-sm font-medium hover:bg-navy-900 hover:text-gold-400 transition-colors"
                   >
                     <Phone size={14} />
@@ -110,14 +128,12 @@ export default function ForgotPasswordPage() {
               <p className="font-body text-xs text-gray-500 mb-6">
                 The link expires in 30 minutes. Don't forget to check your spam folder.
               </p>
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-left">
-                <p className="font-body text-xs text-yellow-900">
-                  <strong>Note:</strong> Email delivery is being set up. For now, please contact the store directly to reset your password — our team will help you in under 5 minutes.
-                </p>
-              </div>
+              <p className="font-body text-xs text-gray-500 mb-6">
+                Still no email after 5 minutes? WhatsApp us — we'll reset it for you.
+              </p>
               <div className="mt-6 flex flex-col sm:flex-row gap-2">
                 <a
-                  href="https://wa.me/91XXXXXXXXXX?text=Hi%2C%20I%20need%20to%20reset%20my%20password"
+                  href="https://wa.me/919440250863?text=Hi%2C%20I%20need%20to%20reset%20my%20password"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded font-body text-sm font-medium hover:bg-green-700 transition-colors"
@@ -126,7 +142,7 @@ export default function ForgotPasswordPage() {
                   WhatsApp Support
                 </a>
                 <a
-                  href="tel:+91XXXXXXXXXX"
+                  href="tel:+919440250863"
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-navy-900 text-navy-900 rounded font-body text-sm font-medium hover:bg-navy-900 hover:text-gold-400 transition-colors"
                 >
                   <Phone size={14} />

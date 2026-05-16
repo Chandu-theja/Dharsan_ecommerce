@@ -11,7 +11,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:import-er4u": "tsx scripts/import-er4u.ts"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -53,6 +54,7 @@
     "tailwindcss": "^3.4.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   }
 }

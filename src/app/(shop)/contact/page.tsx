@@ -17,15 +17,15 @@ export default function ContactPage() {
         <div className="p-5 bg-white border border-cream-200 rounded">
           <Phone className="text-gold-600 mb-2" size={20} />
           <p className="font-body font-semibold text-navy-900 mb-1">Phone</p>
-          <a href="tel:+91XXXXXXXXXX" className="font-body text-sm text-gray-700 hover:text-gold-600">
-            +91 XXXXX XXXXX
+          <a href="tel:+919440250863" className="font-body text-sm text-gray-700 hover:text-gold-600">
+            +91 94402 50863
           </a>
         </div>
         <div className="p-5 bg-white border border-cream-200 rounded">
           <Mail className="text-gold-600 mb-2" size={20} />
           <p className="font-body font-semibold text-navy-900 mb-1">Email</p>
-          <a href="mailto:info@dharsandresses.com" className="font-body text-sm text-gray-700 hover:text-gold-600">
-            info@dharsandresses.com
+          <a href="mailto:Dharsangroups@gmail.com" className="font-body text-sm text-gray-700 hover:text-gold-600">
+            Dharsangroups@gmail.com
           </a>
         </div>
         <div className="p-5 bg-white border border-cream-200 rounded">

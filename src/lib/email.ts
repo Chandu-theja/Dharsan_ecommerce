@@ -164,6 +164,60 @@ export async function sendShippingEmail(params: {
   });
 }
 
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  customerName: string;
+  resetUrl: string;
+  expiresInMinutes: number;
+}) {
+  const html = `
+    <div style="max-width:600px;margin:0 auto;background:#FDFCF9;">
+      ${brandHeader}
+      <div style="padding:32px;">
+        <h2 style="font-family:Georgia,serif;color:#0A1128;font-size:24px;margin:0 0 8px;">
+          Reset your password
+        </h2>
+        <p style="font-family:sans-serif;color:#4A5568;font-size:15px;margin:0 0 24px;">
+          Hi ${params.customerName || 'there'}, we received a request to reset the password for your Dharsan Dresses account.
+          Click the button below to choose a new password.
+        </p>
+
+        <div style="text-align:center;margin:32px 0;">
+          <a href="${params.resetUrl}"
+             style="display:inline-block;background:#0A1128;color:#C8991E;padding:14px 36px;border-radius:6px;font-family:sans-serif;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:1px;">
+            Reset Password
+          </a>
+        </div>
+
+        <div style="background:#FAF7F0;border:1px solid #EDE2CC;border-radius:8px;padding:16px;margin-bottom:24px;">
+          <p style="font-family:sans-serif;font-size:13px;color:#6B7280;margin:0;">
+            This link expires in <strong>${params.expiresInMinutes} minutes</strong>.
+            If the button above doesn't work, copy and paste this URL into your browser:
+          </p>
+          <p style="font-family:'Courier New',monospace;font-size:12px;color:#0A1128;background:#fff;padding:10px;margin:8px 0 0;border-radius:4px;word-break:break-all;">
+            ${params.resetUrl}
+          </p>
+        </div>
+
+        <p style="font-family:sans-serif;font-size:13px;color:#9CA3AF;text-align:center;margin:24px 0 0;">
+          Didn't request this? You can safely ignore this email — your password won't change unless you click the link above.
+          <br/><br/>
+          For instant help, WhatsApp us at
+          <a href="https://wa.me/919440250863" style="color:#C8991E;">+91 94402 50863</a>.
+        </p>
+      </div>
+      ${brandFooter}
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to: params.to,
+    subject: 'Reset your Dharsan Dresses password',
+    html,
+  });
+}
+
 export async function sendLowStockAlert(params: {
   productName: string;
   variant: string;

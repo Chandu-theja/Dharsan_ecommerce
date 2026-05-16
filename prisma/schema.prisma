@@ -164,9 +164,24 @@ model Product {
   careInstructions String?
   origin          String?       // e.g. "Handloom - Kanchipuram"
 
+  // ─── Brand / SKU / Tax (ER4U-imported fields) ──────────────────────
+  brand           String?       // e.g. "RAYMOND", "MARK ANTONY" — from ER4U Brand column
+  originalSku     String?       @unique  // ER4U Barcode (e.g. "RM191363") — used for re-import dedup
+  hsnCode         String?       // e.g. "6203", "62052000" — required on GST invoice
+  gstRate         Int           @default(5)  // GST percentage (5, 12, 18) — parsed from ER4U Tax Category
+
   price           Float
-  comparePrice    Float?        // Original price for sale display
-  costPrice       Float?        // For profit tracking
+  comparePrice    Float?        // Original price for sale display (= MRP from ER4U)
+  costPrice       Float?        // For profit tracking (= Purchase Rate from ER4U)
+
+  // ─── Stock ──────────────────────────────────────────────────────────
+  // Use `stockQuantity` when product has no variants (typical for ER4U items).
+  // When variants exist, sum(variants.stock) is the source of truth.
+  stockQuantity   Int           @default(0)
+
+  // Raw provenance + per-store breakdown from ER4U:
+  //   { source: "er4u", itemId, referenceCode, taxCategory, storeStock: {DD, DT, DS}, importedAt }
+  metadata        Json?
 
   gender          Gender
   categoryId      String

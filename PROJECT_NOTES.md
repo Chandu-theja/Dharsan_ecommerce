@@ -278,66 +278,242 @@ Each phase has a single **outcome** and a checklist. Don't move forward until th
 
 ---
 
-### Phase 2 — Make It Sellable (CRITICAL: no real selling possible until done)
-**Outcome:** A real customer can buy a real product end-to-end. The shop owner can manage products and orders without touching the database.
+### Phase 2 — Make It Browseable (UI focus: Browse + Login + Signup) — **CURRENT SPRINT**
+**Outcome:** A first-time visitor can land on the homepage, browse by category exactly like Meesho/Nykaa, find products, view product detail, and create / sign in to an account — and that whole journey feels polished. Selling, shipping, invoices come next.
 
-#### 2.1 — Image storage and upload
-- [ ] Create OCI Object Storage bucket `dharsan-dresses-images` (see "Phase 2 — Detailed Instructions" below)
-- [ ] Add OCI credentials to `.env` (`OCI_BUCKET_NAME`, `OCI_NAMESPACE`, `OCI_REGION`, `OCI_ACCESS_KEY_ID`, `OCI_SECRET_ACCESS_KEY`)
-- [ ] Build `POST /api/upload` endpoint — accepts image, uploads to OCI, returns public URL
-- [ ] Build a reusable `<ImageUploader />` admin component (drag-drop, progress, multi-file)
+> Each sub-phase has a **What I need from you** column. "Nothing" = I can ship it solo. Anything else = blocker.
 
-#### 2.2 — Admin product management
-- [ ] `/admin/products` — list, search, filter, paginate
-- [ ] `/admin/products/new` — create product form (name, slug, category, fabric, price, comparePrice, stock, description, careInstructions, gender, isFeatured/isNewArrival/isOnSale flags)
-- [ ] `/admin/products/[id]/edit` — edit any field
-- [ ] Inline variant management (size + colour + stock)
-- [ ] Inline image management using `<ImageUploader />` — reorder, mark primary, delete
-- [ ] `DELETE /api/admin/products/[id]` (soft delete via `isPublished=false` recommended)
-- [ ] Server-side admin role guard (middleware)
+#### 2.0 — Get real product data in (DO THIS FIRST — unblocks everything visible)
+The shop's catalogue lives in ER4U ERP at `er4uenterprise.in/er4u/dharsandresses/`. From the stock export you shared (`STOCK_REPORT_20260516094742.xlsx`), I now know exactly what the ERP gives us:
 
-#### 2.3 — Admin order management
-- [ ] `/admin/orders` — list with filters by status, date range, customer
-- [ ] `/admin/orders/[orderNumber]` — full order detail with items, address, payment, status timeline
-- [ ] Update order status (CONFIRMED → PROCESSING → SHIPPED → DELIVERED → REFUNDED)
-- [ ] Add tracking number when shipping
-- [ ] Print/download invoice (see 2.7)
+**ER4U schema (23 columns, 5,933 items, all in stock across 3 store locations DD/DT/DS):**
+`SNo | Item_Id | Barcode | Item Name | Brand | Size | Colour | Reference Code | Category | Refrence No | Barcode Tag | Model | Tax Category | HSN Code | Unit | Purchase Rate | Stock Purchase Price | MRP | Rate | Qty-DD | Qty-DT | Qty-DS | Net Qty`
 
-#### 2.4 — Customer-facing orders
-- [ ] Real `/orders` page — list user's orders with status badges, total, date
-- [ ] `/orders/[orderNumber]` — full detail: items, shipping address, payment summary, status timeline, tracking link, "Need help?" CTA
-- [ ] `GET /api/orders` + `GET /api/orders/[orderNumber]` (auth-protected)
+**Quirks I found in the data (need owner decisions):**
+- **`Item Name` is generic** ("2 BUTTON COAT" appears 13 times, "1 piece" appears many times). On the website we need richer display names. Plan: construct as `{Brand} {Item Name} ({Barcode})` → e.g. `"MARK ANTONY 2 BUTTON COAT (RM181277)"`. Decision needed: OK with this, or do you have a master product-name list?
+- **`Category` is too coarse** — 87% of items are just "Textiles" (2761) or "Readymade" (2381). Useless for a Meesho-style mega menu. Plan: map ER4U Category + HSN Code → a website-friendly category tree (e.g. HSN 6203 = Men's Suits, 6205 = Men's Shirts, 5208/5407 = Cotton/Polyester Fabric). I'll write the mapping; you review.
+- **`Size` and `Colour` fields are unusable** — they contain random tokens (brand names, codes, "BERRY", "Hyde Park", numbers). Plan: ignore on import, start blank, fill via admin panel (2.5 below) only for the items where it matters.
+- **3 store stock columns** (DD/DT/DS). Plan: sum into single `stock` on the website; keep raw breakdown in a `metadata` JSON field for future per-store fulfilment.
+- **`HSN Code` is clean** — keep per product for invoicing later.
+- **`Tax Category` is messy** ("GST(5,12 to 5,18)") — Plan: parse → flat `gstRate` integer per product (5 or 12 based on MRP threshold).
 
-#### 2.5 — Email actually sending
-- [ ] Gmail App Password generated (5 min)
-- [ ] Add `SMTP_*` env vars on server
-- [ ] Verify order confirmation email reaches the customer
-- [ ] Verify low-stock alert reaches the admin
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.0.a | Run Prisma Studio for manual entry sanity-check | — | **Run** `docker compose exec app npx prisma studio --port 5555 --browser none` on server, then open `http://144.24.153.46:5555` |
+| 2.0.b | Confirm category-mapping rules | I propose the HSN→Category mapping table | **Review** the mapping table I draft and approve / tweak |
+| 2.0.c | Confirm product-name construction rule | — | **Approve** `{Brand} {Item Name} ({Barcode})` format, or give me a different rule |
+| 2.0.d | ✅ Extended `Product` schema (`brand`, `hsnCode`, `gstRate`, `originalSku`, `stockQuantity`, `metadata`) — 2026-05-16 | Done | Nothing |
+| 2.0.e | ✅ Wrote import script `scripts/import-er4u.ts` + HSN→Category map `scripts/hsn-category-map.ts` — 2026-05-16 | Done | **Review** `scripts/hsn-category-map.ts` before running import. Edit any category names/slugs to taste |
+| 2.0.f | Run the schema migration + bulk import (5,933 items, ~1 min) | — | **On server:** `git pull && docker compose build && docker compose up -d` (rebuilds with new schema + `xlsx` dep). Then `docker compose cp ~/STOCK_REPORT_20260516094742.xlsx app:/tmp/stock.xlsx && docker compose exec app npm run db:import-er4u -- /tmp/stock.xlsx`. SCP the xlsx to the server first if it's not there yet |
+| 2.0.g | Verify catalogue on the live site | — | **Browse** `http://144.24.153.46/products` and confirm products show up. Spot-check 5 |
 
-#### 2.6 — Delhivery shipping integration
-- [ ] Build `lib/delhivery.ts` shipment-creation function (`POST /api/cmu/create.json`)
-- [ ] On order CONFIRMED, auto-create Delhivery shipment, save waybill to `Order.trackingNumber`
-- [ ] Real `/track-order` page using `trackShipment(waybill)`
-- [ ] `POST /api/webhooks/delhivery` — receive status updates, map to OrderStatus enum, update DB
-- [ ] Pincode serviceability check on PDP ("Deliverable to your area" widget) and at checkout (validate before payment)
-
-#### 2.7 — Invoice PDF
-- [ ] Wire `@react-pdf/renderer` (already in `package.json`)
-- [ ] `GET /api/invoices/[invoiceNumber]` — generates PDF on demand
-- [ ] Email order confirmation: attach the PDF
-- [ ] Both customer order page and admin order page have "Download Invoice" button
-
-#### 2.8 — Operational hardening
-- [ ] Change default admin password (`admin@dharsandresses.com` / `Admin@Dharsan2026!`)
-- [ ] Move DB to OCI Autonomous Database (free tier, managed, auto-backup) — see ARCHITECTURE section
-- [ ] Set up UptimeRobot (free) to ping `/api/health` every 5 min
-- [ ] Add Google Analytics 4 (track page views, add-to-cart, purchase)
-- [ ] Add `error.tsx` (segment-level) and `global-error.tsx`
-- [ ] Add `loading.tsx` files where useful (products list, category, product detail)
+**Decisions you owe me (block 2.0.b and 2.0.c):**
+1. Display-name format: `{Brand} {Item Name} ({Barcode})` — yes / suggest alternative?
+2. For products with no brand (e.g. row 3 has empty Brand): show just `{Item Name} ({Barcode})`?
+3. Should the **Barcode** (e.g. `RM191363`) be exposed publicly as the URL slug (`/product/rm191363`) or hidden behind a clean slug like `/product/mark-antony-2-button-coat-rm181277`? Recommend the second for SEO.
 
 ---
 
-### Phase 3 — Make It Trustworthy (CRITICAL before public launch)
+#### 2.1 — Get product images out of ER4U  ⏸ **BLOCKED — owner discussing with ER4U team**
+Owner is following up with ER4U to find out how images can be obtained. Until that's resolved, the catalogue will ship with **brand-gradient placeholders** so we can launch browsing UX without waiting.
+
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.1.a | ✅ Built `<BrandPlaceholder />` component (`src/components/product/BrandPlaceholder.tsx`) — 2026-05-16. Hashes brand name → deterministic palette so cards look varied | Done | Nothing |
+| 2.1.b | Wire placeholder into `ProductCard` + PDP when `images[]` is empty | Will land with mega-menu / browse-UX batch | Nothing |
+| 2.1.c | Determine ER4U image-acquisition path | — | **Discuss with ER4U team** and report back: are images downloadable in bulk? Via API? Via a hidden URL pattern? Manual export only? |
+| 2.1.d | Once 2.1.c is resolved → write scraper / importer / upload script (one of: bulk download script, Puppeteer scraper with login, manual zip import) | I write the code (path depends on owner's update) | (Depends on 2.1.c outcome) |
+| 2.1.e | Compress images (sharp) — target 1200×1500 WebP, <200KB | I write the code | Nothing |
+| 2.1.f | Backfill `Product.images[]` in DB | I write the code | Nothing |
+
+**Plan B if ER4U can't help:** owner photographs/sources images and uploads via the admin panel (Phase 2.6) one product at a time. Slow but works.
+
+---
+
+#### 2.2 — OCI Object Storage (for long-term image hosting)
+Same plan as before, but lower priority now. We can launch with `public/images/` and migrate later.
+
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.2.a | Create OCI Object Storage bucket `dharsan-dresses-images` | — | **You do it in OCI Console.** Steps in "Phase 2 — Detailed Instructions" section below |
+| 2.2.b | Generate OCI Customer Secret Keys | — | **You do it** at OCI → User Settings → Customer Secret Keys → Generate |
+| 2.2.c | Add 6 OCI env vars to server `.env` | — | **Paste values** + run `docker compose restart app` |
+| 2.2.d | Build `POST /api/upload` endpoint | I write the code | Nothing |
+| 2.2.e | Build reusable `<ImageUploader />` (drag-drop, progress, multi-file) | I write the code | Nothing |
+| 2.2.f | Migration script: re-upload `public/images/products/*` to OCI, rewrite DB URLs | I write the code | Nothing |
+
+---
+
+#### 2.3 — Browse UX (Category discovery — the main UX work of this sprint)
+This is **the** focus item. How a visitor goes from "I want to buy a wedding shirt" → finding it → adding to cart.
+
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.3.a | Build Meesho-style **mega menu** on the navbar | Hover-open panel: column-per-category (Men → Shirts/Trousers/Suits/Kurtas; Women → coming; Fabric → Suiting/Shirting; Accessories), each column shows top subcategories + a featured-image tile on the right | **Approve the category tree** I draft from the HSN-mapping (see 2.0.b) |
+| 2.3.b | Build **Mobile category drawer** (sliding from left, like Meesho app) | I write the code | Nothing |
+| 2.3.c | **Category landing page** redesign (`/category/[slug]`) — banner image, subcategory pills, sort dropdown (FIX the broken onChange), product grid (4×N desktop, 2×N mobile), pagination ("Load More" button), empty state | I write the code | (Optional) A banner image per top-level category, else I use a gold-on-navy gradient |
+| 2.3.d | **Product grid card** redesign — image (4:5 ratio), brand tag (small grey above name), name (2 lines max), MRP strikethrough + selling price + discount % chip, "Add to Wishlist" heart icon, hover quick-view button | I write the code | Nothing |
+| 2.3.e | **Active filters bar** above grid — chips showing what's applied with × to remove each | I write the code | Nothing |
+| 2.3.f | **Filter sidebar** (Meesho-style: price, brand, fabric/category, in-stock toggle) — desktop = left sidebar, mobile = bottom sheet | I write the code | Nothing (uses brand/category/HSN data from import) |
+| 2.3.g | **Pagination** ("Load More" button), 24 products per page | I write the code | Nothing |
+| 2.3.h | **Sort dropdown** wiring (currently broken — visual only) → Relevance / Newest / Price ↓ / Price ↑ / Discount % | I fix the bug | Nothing |
+| 2.3.i | **Search-bar autosuggest dropdown** — debounced, top 6 product matches + 3 category matches | I write the code | Nothing |
+| 2.3.j | **Recently viewed** strip on homepage + category page (localStorage) | I write the code | Nothing |
+| 2.3.k | **Breadcrumbs** on category and product pages — Home / Men / Shirts / Mark Antony 2 Button Coat | I write the code (PDP already has them; extend to category) | Nothing |
+
+---
+
+#### 2.4 — Product Detail Page (PDP) polish
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.4.a | **Image gallery with zoom + lightbox** (already have `react-image-gallery` in deps) | I write the code | Nothing |
+| 2.4.b | **Variant selector UI** — size buttons + colour swatches (variants exist in DB, no UI) | I write the code | Nothing (will be sparse until 2.5 admin panel lets you fill them) |
+| 2.4.c | **"You may also like"** — 4 related products (same category, exclude current) | I write the code | Nothing |
+| 2.4.d | **Brand badge** + brand-page link (`/brand/raymond`) | I write the code + new `/brand/[slug]` page | Nothing |
+| 2.4.e | **Stock urgency** — "Only 2 left", "Selling fast" if low stock | I write the code | Nothing |
+| 2.4.f | **Share buttons** (WhatsApp, copy link) | I write the code | Nothing |
+
+---
+
+#### 2.5 — Login + Signup UX (the auth half of this sprint)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.5.a | ⏸ **Sign-in with Google** — DEFERRED (owner has no GCP account). Will revisit post-launch | — | **(Skip for Phase 2)** When ready: create Google Cloud Account → Console → APIs & Services → Credentials → OAuth 2.0 Client ID. Redirect URI: `http://144.24.153.46/api/auth/callback/google`. Share Client ID + Secret |
+| 2.5.b | **Show inline error states** on login (wrong password / locked / unverified) instead of toast-only | I write the code | Nothing |
+| 2.5.c | **Remember me** checkbox + 30-day session extension | I write the code | Nothing |
+| 2.5.d | **Signup → auto-login flow polish** (already mostly done in last session; QA + fix edge cases) | I write the code | Nothing — test with a new email and report any issues |
+| 2.5.e | **Profile dropdown** in navbar when logged in (Avatar → My Orders / Wishlist / Addresses / Logout) | I write the code | Nothing |
+| 2.5.f | ✅ **Forgot password** — fully wired (`/api/auth/forgot-password`, `/api/auth/reset-password`, `/reset-password` page, branded email with 30-min token, strength meter on reset). 2026-05-16 | Done | Nothing — test end-to-end once you deploy |
+
+---
+
+#### 2.6 — Admin product management (so you can edit ER4U-imported products)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.6.a | `/admin/products` list (search, filter by brand/category, paginate) | I write the code | Nothing |
+| 2.6.b | `/admin/products/[id]/edit` — edit any of: name, description, category, price, MRP, stock, images, brand, HSN, GST, sizes, colors, fabric, careInstructions, published toggle | I write the code | Nothing |
+| 2.6.c | `/admin/products/new` — same form, blank | I write the code | Nothing |
+| 2.6.d | Inline variant manager (size + colour + stock per variant) | I write the code | Nothing |
+| 2.6.e | Inline image uploader (uses `<ImageUploader />` from 2.2) | I write the code | Nothing |
+| 2.6.f | Soft-delete via `isPublished=false` toggle | I write the code | Nothing |
+| 2.6.g | Server-side admin role guard middleware | I write the code | Nothing |
+| 2.6.h | **Bulk publish/unpublish** (select N products, action menu) | I write the code | Nothing |
+
+---
+
+#### 2.7 — Email sending (Gmail SMTP) — **all the info I need is below**
+Why we keep this in Phase 2: forgot-password (2.5.f) and customer order confirmations need it. Already have all your decisions — only blocker is the Gmail App Password, which you generate.
+
+**📋 Step-by-step: Generate Gmail App Password for `Dharsangroups@gmail.com`**
+
+1. **Enable 2-Step Verification first** (required before App Passwords are available):
+   - Sign in to `Dharsangroups@gmail.com`
+   - Visit https://myaccount.google.com/security
+   - Under "How you sign in to Google" → click **2-Step Verification** → **Get started**
+   - Follow prompts (add a backup phone, verify with OTP). Takes 3 min.
+
+2. **Generate the App Password:**
+   - Once 2FA is on, visit https://myaccount.google.com/apppasswords
+   - (If the link 404s, search "App passwords" in your Google Account search bar — Google sometimes hides this)
+   - At the bottom of the page: **App name** → type `Dharsan Dresses Website`
+   - Click **Create**
+   - You'll see a **16-character password** in a yellow box (e.g. `abcd efgh ijkl mnop`)
+   - **Copy it immediately** — Google won't show it again
+   - Click **Done**
+
+3. **Add to server `.env` file** (paste these exactly, replacing `xxxxxxxxxxxxxxxx` with your 16-char password, removing spaces):
+   ```env
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=Dharsangroups@gmail.com
+   SMTP_PASSWORD=xxxxxxxxxxxxxxxx
+   SMTP_FROM=Dharsan Dresses <Dharsangroups@gmail.com>
+   ```
+
+4. **Restart the app:**
+   ```bash
+   cd ~/Dharsan_ecommerce
+   docker compose restart app
+   ```
+
+5. **Test:** trigger a forgot-password from the site with your own email — check inbox + spam.
+
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.7.a | ✅ Gmail App Password generated by owner (2026-05-16) | — | Done |
+| 2.7.b | ✅ Added 5 SMTP env vars to server `.env` + restart (2026-05-16) | — | Done |
+| 2.7.c | ✅ `lib/email.ts` — added `sendPasswordResetEmail()` (branded HTML, mobile-friendly, WhatsApp fallback link). Existing `sendOrderConfirmationEmail`/`sendShippingEmail` already wired. 2026-05-16 | Done | Nothing |
+| 2.7.d | ✅ Wired forgot-password endpoint to send reset email | Done | Nothing |
+| 2.7.e | Wire order-confirmation email on successful order | I write the code | Nothing |
+| 2.7.f | Test deliverability (Gmail → Gmail, Gmail → Yahoo, Gmail → Outlook) | — | **Test with 2-3 different email addresses** + check spam folder |
+| 2.7.g | **Revoke the chat-shared App Password and regenerate** (security hygiene) | — | After 2.7.f passes: Google Account → Security → App passwords → trash the current one → generate new → SSH to server → update `.env` → restart. Never share via chat again |
+
+##### SSH Command — Add SMTP to Server (run this on `144.24.153.46`)
+
+Copy this whole block, SSH into the server, and paste it. It's safer than `nano` because it doesn't write the password to your terminal scrollback as you type:
+
+```bash
+ssh opc@144.24.153.46
+
+# Switch to the project dir
+cd ~/Dharsan_ecommerce
+
+# Append the 5 SMTP lines to .env (heredoc keeps the password off your shell history)
+cat >> .env <<'EOF'
+
+# ─── EMAIL (SMTP via Gmail) — added 2026-05-16 ───
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=Dharsangroups@gmail.com
+SMTP_PASSWORD=fqfnbmpatybtptbz
+SMTP_FROM=Dharsan Dresses <Dharsangroups@gmail.com>
+EOF
+
+# Lock down the file so only opc can read it
+chmod 600 .env
+chown opc:opc .env
+
+# Verify (should show -rw------- 1 opc opc)
+ls -la .env
+
+# Restart the app so it picks up the new env vars
+docker compose restart app
+
+# Optional: tail logs to confirm SMTP init succeeded
+docker compose logs -f app | head -50
+```
+
+**Note on the password format:** Google displays App Passwords with spaces (`fqfn bmpa tybt ptbz`) for readability, but they work either way. I've used the no-space version above to avoid any quoting issues in the shell heredoc.
+
+---
+
+#### 2.8 — Operational hardening (do these as we wrap Phase 2)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 2.8.a | Owner changes default admin password via `/profile` | — | **You do it** — log in as `admin@dharsandresses.com` / `Admin@Dharsan2026!` → /profile → change |
+| 2.8.b | Set up UptimeRobot ping `/api/health` every 5 min | — | **You do it (5 min)** — https://uptimerobot.com → free account → add monitor |
+| 2.8.c | Add Google Analytics 4 | I write the code | **You** create GA4 property at https://analytics.google.com → share Measurement ID (`G-XXXXXXXXXX`) |
+| 2.8.d | Add `error.tsx` (segment-level) + `global-error.tsx` | I write the code | Nothing |
+| 2.8.e | Add `loading.tsx` skeletons (products list, category, PDP) | I write the code | Nothing |
+
+---
+
+### Phase 3 — Make It Sellable (admin order ops + customer order history)
+**Outcome:** Owner can manage orders end-to-end; customers can see their order history. No shipping integration or PDFs yet (those move to Phase 6).
+
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 3.1.a | `/admin/orders` list with filters (status, date range, customer) | I write the code | Nothing |
+| 3.1.b | `/admin/orders/[orderNumber]` detail page (items, address, payment, status timeline, manual tracking-number input) | I write the code | Nothing |
+| 3.1.c | Status update UI (PENDING → CONFIRMED → PROCESSING → SHIPPED → OUT_FOR_DELIVERY → DELIVERED; side: CANCELLED w/ reason; RETURN_REQUESTED → RETURN_PICKED → REFUNDED) | I write the code | Nothing (industry-standard flow locked in) |
+| 3.1.d | Customer `/orders` page (list with status badges, total, date) | I write the code | Nothing |
+| 3.1.e | Customer `/orders/[orderNumber]` (full detail, status timeline, manual tracking link, Need-help WhatsApp/phone CTA) | I write the code | Nothing |
+| 3.1.f | `GET /api/orders` + `GET /api/orders/[orderNumber]` (auth-protected) | I write the code | Nothing |
+| 3.1.g | Cancel-order button on customer side (only while status is PENDING / CONFIRMED) | I write the code | Nothing |
+
+---
+
+### Phase 4 — Make It Trustworthy (CRITICAL before public launch)
 **Outcome:** A first-time visitor trusts the site enough to enter their card details. Account security matches Meesho/Nykaa standards.
 
 #### 3.1 — Auth hardening (see "Production-Grade Auth" section for service signups)
@@ -370,7 +546,8 @@ Each phase has a single **outcome** and a checklist. Don't move forward until th
 
 ---
 
-### Phase 4 — Make It Convert (UX polish to match Meesho/Nykaa)
+### Phase 5 — Make It Convert (UX polish to match Meesho/Nykaa)
+**Note:** Several items originally here (filter sidebar, sort fix, PDP variant selector, image zoom, "you may also like", share buttons, recently-viewed) **moved into Phase 2.3 / 2.4** since they're part of the current sprint focus on Browse UX. What remains here is the deeper engagement layer.
 **Outcome:** Browsing feels effortless. Visitors can find what they want in under 30 seconds.
 
 #### 4.1 — Filtering (Meesho/Nykaa-style, plan already documented above)
@@ -411,7 +588,43 @@ Each phase has a single **outcome** and a checklist. Don't move forward until th
 
 ---
 
-### Phase 5 — Make It Grow (catalogue scale & marketing features)
+### Phase 6 — Pre-Launch Infra (shipping, invoicing, WhatsApp)
+**Outcome:** The boring-but-required production pieces that don't affect day-to-day browsing/buying but are needed for legal/operational compliance before going live.
+
+#### 6.1 — Delhivery shipping (formerly Phase 2.6)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 6.1.a | Sign up for Delhivery API access | — | Sign up at https://www.delhivery.com → request API access (2-7 days approval) |
+| 6.1.b | Provide Delhivery API token + warehouse name + pickup pincode | — | Share after approval |
+| 6.1.c | Provide full pickup address (line 1/2, city, state, pincode, contact name+phone) | — | Already on file (Yadava St, Tirupati 517501, +91 94402 50863) — just confirm |
+| 6.1.d | Build `lib/delhivery.ts` shipment creation + waybill save | I write the code | Nothing |
+| 6.1.e | Auto-create shipment on order CONFIRMED | I write the code | Nothing |
+| 6.1.f | Real `/track-order` page using `trackShipment(waybill)` | I write the code | Nothing |
+| 6.1.g | `POST /api/webhooks/delhivery` status webhook | I write the code | Register webhook URL in Delhivery dashboard |
+| 6.1.h | Pincode serviceability widget on PDP + checkout | I write the code | Nothing |
+
+#### 6.2 — Invoice PDF (formerly Phase 2.7)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 6.2.a | Decide invoice format | — | Share a sample ER4U invoice (PDF/screenshot) so I match layout; or "design clean" |
+| 6.2.b | Provide invoice header details | — | Legal business name, GSTIN, full address, logo (already in `/public/images/logo.png`) |
+| 6.2.c | HSN + GST per product already imported from ER4U via 2.0 | I write the code | Nothing |
+| 6.2.d | Wire `@react-pdf/renderer` | I write the code | Nothing |
+| 6.2.e | `GET /api/invoices/[invoiceNumber]` PDF endpoint | I write the code | Nothing |
+| 6.2.f | Attach PDF to order-confirmation email | I write the code | Nothing |
+| 6.2.g | "Download Invoice" button on customer + admin order pages | I write the code | Nothing |
+
+#### 6.3 — WhatsApp notifications via Twilio (deferred per owner)
+| # | Task | What I do | What I need from you |
+|---|------|-----------|----------------------|
+| 6.3.a | Sign up for Twilio + apply for WhatsApp Business API | — | Sign up at https://twilio.com; submit Facebook Business Manager link (1-3 day approval) |
+| 6.3.b | Add Twilio env vars to server | — | Paste `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` |
+| 6.3.c | Get message templates approved | — | Draft 3 templates (order confirmation, shipping, delivery) → submit to Twilio for WABA approval |
+| 6.3.d | Wire WhatsApp send on order events | I write the code (file already exists, just needs config) | Nothing |
+
+---
+
+### Phase 7 — Make It Grow (catalogue scale & marketing features)
 **Outcome:** Shop owner can manage hundreds of products and run campaigns without engineering help.
 
 - [ ] **CSV bulk import** (`/admin/products/import`) — download template, upload, validate, dry-run preview, confirm
@@ -428,7 +641,7 @@ Each phase has a single **outcome** and a checklist. Don't move forward until th
 
 ---
 
-### Phase 6 — Go Live (Final flip-the-switch)
+### Phase 8 — Go Live (Final flip-the-switch)
 **Outcome:** Site is on the real domain, HTTPS, real payments, real customers.
 
 - [ ] Domain DNS pointed at OCI server IP (A record + AAAA if v6)
@@ -571,6 +784,78 @@ After adding a product, check:
 
 ---
 
+## Secret Management Architecture — Why `.env` Isn't Great, and What Comes Next
+
+The owner correctly raised the concern: **storing SMTP passwords, OCI keys, Razorpay secrets, etc. in a `.env` file isn't best practice**. Here are the options ranked by effort vs. security, and the migration plan.
+
+### Option A — `.env` file (what we're doing now in Phase 2)
+**How it works:** secrets in a single file at `/home/opc/Dharsan_ecommerce/.env`, loaded by Docker Compose into the container's environment.
+
+| ✅ Pros | ❌ Cons |
+|---------|--------|
+| Zero setup. Docker Compose reads it natively. | Anyone with shell access to the server can `cat .env` |
+| `.gitignore` prevents commits | Visible via `docker inspect` to anyone in the `docker` group |
+| Industry standard for small/early-stage deployments | Restoring from a backup or snapshot copies secrets too |
+| Same file used in dev and prod (consistent) | Rotation requires editing the file + container restart |
+
+**Minimum hardening (do today):**
+```bash
+ssh opc@144.24.153.46
+cd ~/Dharsan_ecommerce
+chmod 600 .env          # only owner can read
+chown opc:opc .env      # owned by opc only
+ls -la .env             # should show: -rw------- 1 opc opc
+```
+
+This is the **right answer for Phase 2 / Phase 3** — get the site working, then harden.
+
+### Option B — Docker Secrets (small step up)
+**How it works:** secrets are stored as files mounted into the container at `/run/secrets/smtp_password`. App reads the file instead of the env var.
+
+| ✅ Pros | ❌ Cons |
+|---------|--------|
+| Secrets not in `docker inspect` | App code must read from files (small change) |
+| Each secret is a separate file → easy rotation | Mainly designed for Docker Swarm, not stand-alone Compose |
+| Still local — no external service dependency | Marginal improvement over `.env` on a single-VM setup |
+
+**When to use:** if we move to Docker Swarm or multi-host. Not worth it for our single VM.
+
+### Option C — OCI Vault (production-grade, recommended for Phase 4)
+**How it works:** secrets stored in Oracle Cloud's managed vault service. App fetches them at startup via OCI SDK using instance principal auth (no keys to manage). Free tier covers 150 secret versions.
+
+| ✅ Pros | ❌ Cons |
+|---------|--------|
+| Secrets never on disk on the VM | Adds a startup dependency (vault must be reachable) |
+| Audit log: who accessed which secret when | Slight cold-start delay (~200ms to fetch on boot) |
+| Built-in rotation API | More moving parts during deployment |
+| Already in your stack (OCI free tier) | App needs SDK code to fetch (we'd write it once) |
+| IAM-based access control | |
+
+**Migration plan when we get to Phase 4:**
+1. Create OCI Vault in same compartment as the VM
+2. Create one Master Encryption Key
+3. Upload each secret (SMTP_PASSWORD, OCI_SECRET_ACCESS_KEY, RAZORPAY_KEY_SECRET, etc.) as a separate Vault Secret
+4. Grant the compute instance an Instance Principal with `read` access on those secrets
+5. Add `src/lib/secrets.ts` — fetches all secrets at app startup, populates `process.env`
+6. Delete secrets from `.env`. Keep only non-secret config there (URLs, ports, feature flags)
+7. Remove `.env` from server entirely after verification
+
+**Estimated effort:** ~4 hours, all on my side. Owner only needs to (a) create the vault in OCI Console and (b) attach the instance principal policy.
+
+### Recommendation
+- **Right now (Phase 2):** stick with `.env`. It's gitignored, file-mode-600, owned by `opc`. That's secure enough for a soft-launch.
+- **Phase 4 (Make It Trustworthy):** migrate to OCI Vault as part of the same sprint where we add OTP, rate limiting, etc.
+- **Always:** never commit `.env`, never paste secrets in chat/Slack/email (use ssh + nano), rotate after any suspected leak.
+
+### Special note on the SMTP password the owner shared this turn
+The Gmail App Password `fqfn bmpa tybt ptbz` was sent over chat → it's now in conversation logs. We'll use it tonight to verify SMTP works, then **revoke + regenerate** as a hygiene step:
+1. After confirming the first test email arrives → Google Account → Security → App passwords → find the entry → trash icon
+2. Generate a new one
+3. SSH to server, `nano .env`, update `SMTP_PASSWORD`, `docker compose restart app`
+4. **Never share the new one anywhere except directly typed into the server's `.env`**
+
+---
+
 ## Production E-Commerce Architecture Reference
 
 Reference: how top Indian e-commerce sites (Meesho, Nykaa style) are structured.
@@ -644,6 +929,20 @@ Reference: how top Indian e-commerce sites (Meesho, Nykaa style) are structured.
 | Stitching booking sync with Google Calendar? | **Yes** — integrate Google Calendar API for tailor appointments |
 | Mobile app (React Native)? | **Future** — only after website is fully live and stable |
 | Product filtering style? | **Meesho/Nykaa-style** — price range, category, fabric, color, occasion, discount |
+| Product schema fields (HSN/weight/GST per product)? | **Meesho-standard** — `name, slug, brand, category, subCategory, mrp, price (after discount), stock, sizes[], colors[], fabric, description, careInstructions, hsnCode, gstRate, weight, images[], isPublished, isFeatured, isNewArrival, isOnSale`. HSN + GST are per-product (carried from ER4U). |
+| Order status flow? | **Industry standard (Meesho/Amazon style)**: `PENDING → CONFIRMED → PROCESSING → SHIPPED → OUT_FOR_DELIVERY → DELIVERED`. Side flows: `CANCELLED` (with `cancelReason`, customer- or admin-initiated, pre-shipment only), `RETURN_REQUESTED → RETURN_PICKED → REFUNDED` (post-delivery, with `returnReason`). |
+| Admin password reset | **Owner will change via `/profile`** — no seed change |
+| Store phone | **+91 94402 50863** (replaced all `91XXXXXXXXXX` placeholders 2026-05-16) |
+| Store email (also SMTP sender) | **Dharsangroups@gmail.com** |
+| WhatsApp notifications (Twilio) | **Deferred to final phase (Go Live)** — focus elsewhere until then |
+| Delhivery shipping integration | **Deferred to Phase 5 (Pre-Launch Infra)** — focus on UI first |
+| Invoice PDF generation | **Deferred to Phase 5 (Pre-Launch Infra)** — focus on UI first |
+| Current sprint focus | **Browse UX + Login + Signup** — how a visitor discovers a category, browses products, and creates / signs in to their account |
+| Product display name | **`{Brand} {Item Name} ({Barcode})`** — e.g. "MARK ANTONY 2 BUTTON COAT (RM181277)". Items with no brand: `{Item Name} ({Barcode})` |
+| Product URL slug | **Clean SEO slug** — e.g. `/product/mark-antony-2-button-coat-rm181277`. Barcode lives at end for uniqueness. Internal `originalSku` field stores raw barcode |
+| ER4U product images | **Pending ER4U team discussion** (owner is following up). Until then: catalogue ships with brand-gradient placeholders. Once images are available, we'll know which scraper pattern to use |
+| Google OAuth login | **Deferred** — owner has no GCP account yet. Email/password remains primary; we can add Google login post-launch when GCP account is created |
+| Secret management | **Phase 2 = `.env` on server** (locked to `chmod 600`, gitignored). **Phase 4 hardening = migrate to OCI Vault** (see "Secret Management Architecture" section below) |
 
 ---
 
@@ -820,4 +1119,4 @@ These are deliberate — Phase 1 is "make the site work", Phase 3 is "production
 
 ---
 
-*Last updated: 2026-05-15*
+*Last updated: 2026-05-16 (post ER4U stock-report analysis)*

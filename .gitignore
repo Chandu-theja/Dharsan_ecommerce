@@ -1,3 +1,6 @@
+# Claude Code session/worktree state — never commit
+.claude/
+
 # Dependencies
 node_modules/
 .pnp
